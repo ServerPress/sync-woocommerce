@@ -21,6 +21,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 	class WPSiteSync_WooCommerce
 	{
 		private static $_instance = NULL;
+		public $api;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
 		const PLUGIN_VERSION = '1.0';
@@ -57,6 +58,8 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 //			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
 //				return;
+
+			$this->api = new SyncApiRequest();
 
 			if (is_admin() && SyncOptions::is_auth()) {
 				$this->load_class('woocommerceadmin');

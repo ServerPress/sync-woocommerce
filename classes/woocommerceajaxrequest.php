@@ -28,8 +28,7 @@ class SyncWooCommerceAjaxRequest extends SyncInput
 		}
 
 		$args = array('post_id' => $post_id);
-		$api = new SyncApiRequest();
-		$api_response = $api->api('pushwoocommerce', $args);
+		$api_response = WPSiteSync_WooCommerce::get_instance()->api->api('pushwoocommerce', $args);
 
 		// copy contents of SyncApiResponse object from API call into the Response object for AJAX call
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - returned from api() call; copying response');
@@ -65,8 +64,7 @@ SyncDebug::log(' - error code: ' . $api_response->get_error_code());
 		}
 
 		$args = array('post_id' => $post_id);
-		$api = new SyncApiRequest();
-		$api_response = $api->api('pullwoocommerce', $args);
+		$api_response = WPSiteSync_WooCommerce::get_instance()->api->api('pullwoocommerce', $args);
 
 		// copy contents of SyncApiResponse object from API call into the Response object for AJAX call
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - returned from api() call; copying response');

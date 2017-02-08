@@ -117,7 +117,7 @@ SyncDebug::log(__METHOD__ . '() action=' . $action);
 		if ('pushwoocommerce' === $action) {
 SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 			$push_data = array();
-			$api = new SyncApiRequest();
+			$api = WPSiteSync_WooCommerce::get_instance()->api;
 			$sync_model = new SyncModel();
 			$push_data = $api->get_push_data($args['post_id'], $push_data);
 
@@ -492,7 +492,7 @@ SyncDebug::log('adding variations');
 SyncDebug::log(__METHOD__ . '() pull post id=' . var_export($post_id, TRUE));
 
 			$pull_data = array();
-			$api = new SyncApiRequest();
+			$api = WPSiteSync_WooCommerce::get_instance()->api;
 			$pull_data = $api->get_push_data($post_id, $pull_data);
 
 			$product = wc_get_product($post_id);
