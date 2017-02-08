@@ -1,2 +1,2 @@
 # sync-woocommerce
-sync for woo commerce
+Repository for the WPSiteSync for WooCommerce add-on
