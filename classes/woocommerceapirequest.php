@@ -177,26 +177,31 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 			}
 
 			// check if any featured images in variations need to be added to queue
-			foreach ($push_data['product_variations'] as $var) {
-				if (0 != $var['thumbnail']) {
+			if (array_key_exists('product_variations', $push_data)) {
+				foreach ($push_data['product_variations'] as $var) {
+					if (0 != $var['thumbnail']) {
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 SyncDebug::log(__METHOD__ . '() featured image:');
-					$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
+						$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
 SyncDebug::log('  src=' . var_export($img, TRUE));
-					// convert site url to relative path
-					if (FALSE !== $img) {
-						$src = $img[0];
+						// convert site url to relative path
+						if (FALSE !== $img) {
+							$src = $img[0];
 SyncDebug::log('  src=' . var_export($src, TRUE));
 SyncDebug::log('  siteurl=' . site_url());
 SyncDebug::log('  ABSPATH=' . ABSPATH);
 SyncDebug::log('  DOCROOT=' . $_SERVER['DOCUMENT_ROOT']);
-						$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
-						$api->upload_media($var['post_data']['ID'], $path, NULL /*$this->host*/, TRUE, $var['thumbnail']);
+							$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
+							$api->upload_media($var['post_data']['ID'], $path, NULL /*$this->host*/, TRUE, $var['thumbnail']);
+						}
 					}
 				}
 			}
 
 			$push_data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
+
+			$url = parse_url(get_bloginfo('url'));
+			$push_data['source_domain'] = $url['host'];
 
 SyncDebug::log(__METHOD__ . '() push_data=' . var_export($push_data, TRUE));
 
@@ -257,6 +262,7 @@ SyncDebug::log(__METHOD__ . "() handling '{$action}' action");
 
 			$push_data = $this->post_raw('push_data', array());
 SyncDebug::log(__METHOD__ . '() found push_data information: ' . var_export($push_data, TRUE));
+			WPSiteSync_WooCommerce::get_instance()->api->set_source_domain($push_data['source_domain']);
 
 			$post_data = $push_data['post_data'];
 			$product_type = $push_data['product_type'];
