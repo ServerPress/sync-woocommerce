@@ -16,6 +16,9 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const NOTICE_PRODUCT_MODIFIED = 600;
 
 	private $_post_id;
+	private $_queue = array();
+	private $_processing = FALSE;                // set to TRUE when processing the $_queue
+	private $_sent_images = array();            // list of image attachments/references within post
 
 	/**
 	 * Filters the errors list, adding SyncWooCommerce specific code-to-string values
@@ -514,21 +517,23 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 			$pull_data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
 
 			// check if any featured images in variations need to be added to queue
-			foreach ($pull_data['product_variations'] as $var) {
-				if (0 != $var['thumbnail']) {
+			if (array_key_exists('product_variations', $pull_data)) {
+				foreach ($pull_data['product_variations'] as $var) {
+					if (0 != $var['thumbnail']) {
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 SyncDebug::log(__METHOD__ . '() featured image:');
-					$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
+						$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
 SyncDebug::log('  src=' . var_export($img, TRUE));
-					// convert site url to relative path
-					if (FALSE !== $img) {
-						$src = $img[0];
+						// convert site url to relative path
+						if (FALSE !== $img) {
+							$src = $img[0];
 SyncDebug::log('  src=' . var_export($src, TRUE));
 SyncDebug::log('  siteurl=' . site_url());
 SyncDebug::log('  ABSPATH=' . ABSPATH);
 SyncDebug::log('  DOCROOT=' . $_SERVER['DOCUMENT_ROOT']);
-						$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
-						$api->upload_media($var['post_data']['ID'], $path, NULL /*$this->host*/, TRUE, $var['thumbnail']);
+							$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
+							$api->upload_media($var['post_data']['ID'], $path, NULL /*$this->host*/, TRUE, $var['thumbnail']);
+						}
 					}
 				}
 			}
@@ -573,6 +578,8 @@ SyncDebug::log(__METHOD__ . '() api response body=' . var_export($api_response, 
 			if (0 === $response->get_error_code()) {
 				$response->success(TRUE);
 			}
+
+			$this->_process_queue($remote_args, $response);
 		} else if ('pullwoocommerce' === $action) {
 SyncDebug::log(__METHOD__ . '() response from API request: ' . var_export($response, TRUE));
 
@@ -744,102 +751,99 @@ SyncDebug::log(__METHOD__ . '() add [flat] object terms result: ' . var_export($
 			foreach ($terms as $term_info) {
 				$tax_type = $term_info['taxonomy'];
 SyncDebug::log(__METHOD__ . '() build lineage for taxonomy: ' . $tax_type);
-				// skip woocommerce attributes
-				//if (0 !== strpos($tax_type, 'pa_', 0)) {
 
-					// first, build a lineage list of the taxonomy terms
-					$lineage = array();
-					$lineage[] = $term_info;            // always add the current term to the lineage
-					$parent = intval($term_info['parent']);
+				// first, build a lineage list of the taxonomy terms
+				$lineage = array();
+				$lineage[] = $term_info;            // always add the current term to the lineage
+				$parent = intval($term_info['parent']);
 SyncDebug::log(__METHOD__ . '() looking for parent term #' . $parent);
-					if (isset($taxonomies['lineage'][$tax_type])) {
-						while (0 !== $parent) {
-							foreach ($taxonomies['lineage'][$tax_type] as $tax_term) {
+				if (isset($taxonomies['lineage'][$tax_type])) {
+					while (0 !== $parent) {
+						foreach ($taxonomies['lineage'][$tax_type] as $tax_term) {
 SyncDebug::log(__METHOD__ . '() checking lineage for #' . $tax_term['term_id'] . ' - ' . $tax_term['slug']);
-								if ($tax_term['term_id'] == $parent) {
+							if ($tax_term['term_id'] == $parent) {
 SyncDebug::log(__METHOD__ . '() - found term ' . $tax_term['slug'] . ' as a child of ' . $parent);
-									$lineage[] = $tax_term;
-									$parent = intval($tax_term['parent']);
+								$lineage[] = $tax_term;
+								$parent = intval($tax_term['parent']);
+								break;
+							}
+						}
+					}
+				} else {
+SyncDebug::log(__METHOD__ . '() no taxonomy lineage found for: ' . $tax_type);
+				}
+				$lineage = array_reverse($lineage);                // swap array order to start loop with top-most term first
+SyncDebug::log(__METHOD__ . '() taxonomy lineage: ' . var_export($lineage, TRUE));
+
+				// next, make sure each term in the hierarchy exists - we'll end on the taxonomy id that needs to be assigned
+SyncDebug::log(__METHOD__ . '() setting taxonomy terms for taxonomy "' . $tax_type . '"');
+				$generation = $parent = 0;
+				foreach ($lineage as $tax_term) {
+SyncDebug::log(__METHOD__ . '() checking term #' . $tax_term['term_id'] . ' ' . $tax_term['slug'] . ' parent=' . $tax_term['parent']);
+					$term = NULL;
+					if (0 === $parent) {
+SyncDebug::log(__METHOD__ . '() getting top level taxonomy ' . $tax_term['slug'] . ' in taxonomy ' . $tax_type);
+						$term = get_term_by('slug', $tax_term['slug'], $tax_type, OBJECT);
+						if (is_wp_error($term) || FALSE === $term) {
+SyncDebug::log(__METHOD__ . '() error=' . var_export($term, TRUE));
+							$term = NULL;                    // term not found, set to NULL so code below creates it
+						}
+SyncDebug::log(__METHOD__ . '() no parent but found term: ' . var_export($term, TRUE));
+					} else {
+						$child_terms = get_term_children($parent, $tax_type);
+SyncDebug::log(__METHOD__ . '() found ' . count($child_terms) . ' term children for #' . $parent);
+						if (!is_wp_error($child_terms)) {
+							// loop through the children until we find one that matches
+							foreach ($child_terms as $term_id) {
+								$term_child = get_term_by('id', $term_id, $tax_type);
+SyncDebug::log(__METHOD__ . '() term child: ' . $term_child->slug);
+								if ($term_child->slug === $tax_term['slug']) {
+									// found the child term
+									$term = $term_child;
 									break;
 								}
 							}
 						}
-					} else {
-SyncDebug::log(__METHOD__ . '() no taxonomy lineage found for: ' . $tax_type);
 					}
-					$lineage = array_reverse($lineage);                // swap array order to start loop with top-most term first
-SyncDebug::log(__METHOD__ . '() taxonomy lineage: ' . var_export($lineage, TRUE));
 
-					// next, make sure each term in the hierarchy exists - we'll end on the taxonomy id that needs to be assigned
-SyncDebug::log(__METHOD__ . '() setting taxonomy terms for taxonomy "' . $tax_type . '"');
-					$generation = $parent = 0;
-					foreach ($lineage as $tax_term) {
-SyncDebug::log(__METHOD__ . '() checking term #' . $tax_term['term_id'] . ' ' . $tax_term['slug'] . ' parent=' . $tax_term['parent']);
-						$term = NULL;
-						if (0 === $parent) {
-SyncDebug::log(__METHOD__ . '() getting top level taxonomy ' . $tax_term['slug'] . ' in taxonomy ' . $tax_type);
-							$term = get_term_by('slug', $tax_term['slug'], $tax_type, OBJECT);
-							if (is_wp_error($term) || FALSE === $term) {
-SyncDebug::log(__METHOD__ . '() error=' . var_export($term, TRUE));
-								$term = NULL;                    // term not found, set to NULL so code below creates it
-							}
-SyncDebug::log(__METHOD__ . '() no parent but found term: ' . var_export($term, TRUE));
-						} else {
-							$child_terms = get_term_children($parent, $tax_type);
-SyncDebug::log(__METHOD__ . '() found ' . count($child_terms) . ' term children for #' . $parent);
-							if (!is_wp_error($child_terms)) {
-								// loop through the children until we find one that matches
-								foreach ($child_terms as $term_id) {
-									$term_child = get_term_by('id', $term_id, $tax_type);
-SyncDebug::log(__METHOD__ . '() term child: ' . $term_child->slug);
-									if ($term_child->slug === $tax_term['slug']) {
-										// found the child term
-										$term = $term_child;
-										break;
-									}
-								}
-							}
-						}
-
-						// see if the term needs to be created
-						if (NULL === $term) {
-							// term not found - create it
-							$args = array(
-								'description' => $tax_term['description'],
-								'slug' => $tax_term['slug'],
-								'taxonomy' => $tax_term['taxonomy'],
-								'parent' => $parent,                    // indicate parent for next loop iteration
-							);
+					// see if the term needs to be created
+					if (NULL === $term) {
+						// term not found - create it
+						$args = array(
+							'description' => $tax_term['description'],
+							'slug' => $tax_term['slug'],
+							'taxonomy' => $tax_term['taxonomy'],
+							'parent' => $parent,                    // indicate parent for next loop iteration
+						);
 SyncDebug::log(__METHOD__ . '() term does not exist- adding name ' . $tax_term['name'] . ' under "' . $tax_type . '" args=' . var_export($args, TRUE));
-							$ret = wp_insert_term($tax_term['name'], $tax_type, $args);
-							if (is_wp_error($ret)) {
-								$term_id = 0;
-								$parent = 0;
-							} else {
-								$term_id = intval($ret['term_id']);
-								$parent = $term_id;            // set the parent to this term id so next loop iteraction looks for term's children
-							}
-SyncDebug::log(__METHOD__ . '() insert term [hier] result: ' . var_export($ret, TRUE));
+						$ret = wp_insert_term($tax_term['name'], $tax_type, $args);
+						if (is_wp_error($ret)) {
+							$term_id = 0;
+							$parent = 0;
 						} else {
-SyncDebug::log(__METHOD__ . '() found term: ' . var_export($term, TRUE));
-							if (isset($term->term_id)) {
-								$term_id = $term->term_id;
-								$parent = $term_id;                            // indicate parent for next loop iteration
-							} else {
-SyncDebug::log(__METHOD__ . '() ERROR: invalid term object');
-							}
+							$term_id = intval($ret['term_id']);
+							$parent = $term_id;            // set the parent to this term id so next loop iteraction looks for term's children
 						}
-						++$generation;
+SyncDebug::log(__METHOD__ . '() insert term [hier] result: ' . var_export($ret, TRUE));
+					} else {
+SyncDebug::log(__METHOD__ . '() found term: ' . var_export($term, TRUE));
+						if (isset($term->term_id)) {
+							$term_id = $term->term_id;
+							$parent = $term_id;                            // indicate parent for next loop iteration
+						} else {
+SyncDebug::log(__METHOD__ . '() ERROR: invalid term object');
+						}
 					}
-					// the loop exits with $term_id set to 0 (error) or the child-most term_id to be assigned to the object
-					if (0 !== $term_id) {
+					++$generation;
+				}
+				// the loop exits with $term_id set to 0 (error) or the child-most term_id to be assigned to the object
+				if (0 !== $term_id) {
 SyncDebug::log(__METHOD__ . '() adding term #' . $term_id . ' to object ' . $post_id);
-						$ret = wp_add_object_terms($post_id, $term_id, $tax_type);
+					$ret = wp_add_object_terms($post_id, $term_id, $tax_type);
 SyncDebug::log(__METHOD__ . '() add [hier] object terms result: ' . var_export($ret, TRUE));
-					}
 				}
 			}
-		//}
+		}
 
 		//
 		// remove any terms that exist for the post, but are not in the taxonmy data sent from Source
@@ -1136,6 +1140,28 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 		);
 
 		register_taxonomy($attribute['name'], array('product'), $taxonomy_data );
+	}
+
+	/**
+	 * Change the content_type for get_sync_data
+	 *
+	 * @since 1.0.0
+	 * @return string
+	 */
+	public function change_media_content_type_product()
+	{
+		return 'wooproduct';
+	}
+
+	/**
+	 * Change the content_type for get_sync_data
+	 *
+	 * @since 1.0.0
+	 * @return string
+	 */
+	public function change_media_content_type_variable_product()
+	{
+		return 'woovariableproduct';
 	}
 }
 

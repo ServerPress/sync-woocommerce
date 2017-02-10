@@ -68,6 +68,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 			$api = $this->load_class('woocommerceapirequest', TRUE);
 
+			add_filter('spectrom_sync_upload_media_content_type', array($api, 'change_media_content_type_product'));
 			add_filter('spectrom_sync_api_request_action', array($api, 'api_request'), 20, 3); // called by SyncApiRequest
 			add_filter('spectrom_sync_api', array($api, 'api_controller_request'), 10, 3); // called by SyncApiController
 			add_action('spectrom_sync_api_request_response', array($api, 'api_response'), 10, 3); // called by SyncApiRequest->api()
