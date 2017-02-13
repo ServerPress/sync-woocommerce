@@ -16,9 +16,6 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const NOTICE_PRODUCT_MODIFIED = 600;
 
 	private $_post_id;
-	private $_queue = array();
-	private $_processing = FALSE;                // set to TRUE when processing the $_queue
-	private $_sent_images = array();            // list of image attachments/references within post
 
 	/**
 	 * Filters the errors list, adding SyncWooCommerce specific code-to-string values
@@ -145,13 +142,14 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 
 			// send post parent for groupings if listed in sync table and post title
 			if (0 !== $push_data['post_data']['post_parent']) {
-				if (NULL !== ($sync_data = $sync_model->get_sync_target_post($push_data['post_data']['post_parent'], SyncOptions::get('target_site_key'), 'wooproduct'))) {
-					$push_data['grouping_parent'] = array('target_id' => $sync_data->target_content_id);
+				$sync_parent_data = $sync_model->get_sync_target_post($push_data['post_data']['post_parent'], SyncOptions::get('target_site_key'), 'wooproduct');
+				if (NULL !== $sync_parent_data) {
+					$push_data['grouping_parent'] = array('target_id' => $sync_parent_data->target_content_id);
 				}
 				$push_data['grouping_parent']['source_title'] = get_the_title($push_data['post_data']['post_parent']);
 			}
 
-			// look up target id for crosssells etc, and send post title
+			// look up target id for cross-sells etc, and send post title
 			foreach ($push_data['post_meta'] as $meta_key => $meta_value) {
 				if ('_upsell_ids' === $meta_key || '_crosssell_ids' === $meta_key) {
 					$ids = maybe_unserialize($push_data['post_meta'][$meta_key][0]);
@@ -265,6 +263,8 @@ SyncDebug::log(__METHOD__ . "() handling '{$action}' action");
 
 			$push_data = $this->post_raw('push_data', array());
 SyncDebug::log(__METHOD__ . '() found push_data information: ' . var_export($push_data, TRUE));
+
+			// set source domain
 			WPSiteSync_WooCommerce::get_instance()->api->set_source_domain($push_data['source_domain']);
 
 			$post_data = $push_data['post_data'];
@@ -273,13 +273,13 @@ SyncDebug::log(__METHOD__ . '() found push_data information: ' . var_export($pus
 			$api_controller = SyncApiController::get_instance();
 			$post_meta = $push_data['post_meta'];
 			$model = new SyncModel();
-
 SyncDebug::log('- syncing post data Source ID#' . $source_post_id . ' - "' . $post_data['post_title'] . '"');
 
 			// Check if a post_id was specified, indicating an update to a previously synced post
 			$target_post_id = $push_data['target_post_id'];
 
 			$post = NULL;
+
 			if (0 !== $target_post_id) {
 SyncDebug::log(' - target post id provided in API: ' . $target_post_id);
 				$post = get_post($target_post_id);
@@ -296,8 +296,6 @@ SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
 					$post = get_post($sync_data->target_content_id);
 					$target_post_id = $sync_data->target_content_id;
 				}
-			} else {
-				$this->_post_id = $target_post_id;
 			}
 
 			if (NULL === $post) {
@@ -384,11 +382,16 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . '  performing sync');
 
 			// sync metadata
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' handling meta data');
+
+			// delete existing meta
 			$existing_meta = get_post_meta($target_post_id);
 			foreach ($existing_meta as $key => $value) {
 				delete_post_meta($target_post_id, $key);
 			}
+
 			foreach ($post_meta as $meta_key => $meta_value) {
+
+				// @todo change to switch statement and see if any can be moved to method
 				// loop through meta_value array
 				if ('_product_attributes' === $meta_key) {
 SyncDebug::log('   processing product attributes: ');
@@ -518,6 +521,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 
 			// check if any featured images in variations need to be added to queue
 			if (array_key_exists('product_variations', $pull_data)) {
+				// @todo extract to method - also in push data
 				foreach ($pull_data['product_variations'] as $var) {
 					if (0 != $var['thumbnail']) {
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
@@ -579,7 +583,6 @@ SyncDebug::log(__METHOD__ . '() api response body=' . var_export($api_response, 
 				$response->success(TRUE);
 			}
 
-			$this->_process_queue($remote_args, $response);
 		} else if ('pullwoocommerce' === $action) {
 SyncDebug::log(__METHOD__ . '() response from API request: ' . var_export($response, TRUE));
 
@@ -1162,6 +1165,70 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	public function change_media_content_type_variable_product()
 	{
 		return 'woovariableproduct';
+	}
+
+	/**
+	 * Callback used to add the Post ID to the data being sent with an image upload
+	 * @param array $fields An array of data fields being sent with the image in an 'upload_media' API call
+	 * @return array The modified media data, with the post id included
+	 * @todo remove?
+	 */
+	public function filter_upload_media_fields($fields)
+	{
+		if (NULL !== $this->_source_id) {
+SyncDebug::log(__METHOD__ . '() setting variation media parent id: ' . $this->_source_id);
+			$fields['variation_media_id'] = $this->_source_id;
+		}
+		return $fields;
+	}
+
+	/**
+	 * Callback for filtering the post data before it's sent to the Target.
+	 *
+	 * @param array $data The data being Pushed to the Target machine
+	 * @param SyncApiRequest $apirequest Instance of the API Request object
+	 * @return array The modified data
+	 * @todo remove?
+	 */
+	public function filter_push_content($data, $apirequest)
+	{
+SyncDebug::log(__METHOD__ . '()');
+###			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
+###				return $return;
+
+		// look for media references and call SyncApiRequest->send_media() to add media to the Push operation
+		if (isset($data['post_meta'])) {
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post meta data: ' . var_export($data['post_meta'], TRUE));
+			$this->load_class('acfpushcontent');
+			$this->load_class('acffieldmodel');
+			$acf_content = new SyncACFPushContent();
+			$data = $acf_content->process_push($data, $apirequest);
+		}
+		return $data;
+	}
+
+	/**
+	 * Callback for 'spectrom_sync_media_processed', called from SyncApiController->upload_media()
+	 *
+	 * @param int $target_post_id The Post ID of the Content being pushed
+	 * @param int $attach_id The attachment's ID
+	 * @param int $media_id The media id
+	 */
+	public function media_processed($target_post_id, $attach_id, $media_id)
+	{
+SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
+		if (0 === $target_post_id) {
+			$api_controller = SyncApiController::get_instance();
+			$site_key = $api_controller->source_site_key;
+			$sync_model = new SyncModel();
+			$sync_data = $sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
+			$new_variation_id = $sync_data->target_content_id;
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target id=' . $target_post_id . ' attach_id=' . $attach_id . ' variation_id=' . var_export($variation_id, TRUE));
+			if (NULL !== $sync_data && 0 !== $attach_id) {
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$attach_id})");
+				update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
+			}
+		}
 	}
 }
 

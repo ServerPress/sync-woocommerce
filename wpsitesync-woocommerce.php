@@ -68,6 +68,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 			$api = $this->load_class('woocommerceapirequest', TRUE);
 
+			//add_filter('spectrom_sync_api_push_content', array($api, 'filter_push_content'), 10, 2);
 			add_filter('spectrom_sync_upload_media_content_type', array($api, 'change_media_content_type_product'));
 			add_filter('spectrom_sync_api_request_action', array($api, 'api_request'), 20, 3); // called by SyncApiRequest
 			add_filter('spectrom_sync_api', array($api, 'api_controller_request'), 10, 3); // called by SyncApiController
@@ -76,6 +77,8 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 			add_filter('spectrom_sync_tax_list', array($api, 'product_taxonomies'), 10, 1);
 			add_action('spectrom_sync_action_success', array($api, 'api_success'), 10, 4);
 			add_filter('spectrom_sync_allowed_post_types', array($api, 'allowed_post_types'));
+			add_action('spectrom_sync_media_processed', array($api, 'media_processed'), 10, 3);
+			//add_filter('spectrom_sync_upload_media_fields', array($api, 'filter_upload_media_fields'), 10, 1);
 
 			add_filter('spectrom_sync_error_code_to_text', array($api, 'filter_error_codes'), 10, 2);
 			add_filter('spectrom_sync_notice_code_to_text', array($api, 'filter_notice_codes'), 10, 2);
