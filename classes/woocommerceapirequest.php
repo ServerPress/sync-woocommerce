@@ -120,11 +120,12 @@ SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 			$api = WPSiteSync_WooCommerce::get_instance()->api;
 			$sync_model = new SyncModel();
 			$push_data = $api->get_push_data($args['post_id'], $push_data);
+			$target_id = 0;
 
+			// get target post id from synced data
 			if (NULL !== ($sync_data = $sync_model->get_sync_target_post($args['post_id'], SyncOptions::get('target_site_key'), 'wooproduct'))) {
 				$push_data['target_post_id'] = $sync_data->target_content_id;
-			} elseif (NULL !== ($sync_data = $sync_model->get_sync_target_post($args['post_id'], SyncOptions::get('target_site_key'), 'woovariableproduct'))) {
-				$push_data['target_post_id'] = $sync_data->target_content_id;
+				$target_id = $sync_data->target_content_id;
 			}
 
 			$push_data['site_key'] = $args['auth']['site_key'];
@@ -140,7 +141,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				}
 			}
 
-			// send post parent for groupings if listed in sync table and post title
+			// send post parent and post title for groupings if listed in sync table
 			if (0 !== $push_data['post_data']['post_parent']) {
 				$sync_parent_data = $sync_model->get_sync_target_post($push_data['post_data']['post_parent'], SyncOptions::get('target_site_key'), 'wooproduct');
 				if (NULL !== $sync_parent_data) {
@@ -149,30 +150,56 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				$push_data['grouping_parent']['source_title'] = get_the_title($push_data['post_data']['post_parent']);
 			}
 
-			// look up target id for cross-sells etc, and send post title
+			// process meta values
 			foreach ($push_data['post_meta'] as $meta_key => $meta_value) {
-				if ('_upsell_ids' === $meta_key || '_crosssell_ids' === $meta_key) {
-					$ids = maybe_unserialize($push_data['post_meta'][$meta_key][0]);
-					foreach ($ids as $associated_id) {
-						if (NULL !== ($sync_data = $sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), 'wooproduct'))) {
-							$push_data[$meta_key][$associated_id] = array('target_id' => $sync_data->target_content_id);
+
+				if (NULL !== $meta_value) {
+					switch ($meta_key) {
+					case '_product_image_gallery':
+						$ids = explode(',', $meta_value[0]);
+						foreach ($ids as $image_id) {
+SyncDebug::log(__METHOD__ . '() adding product image id=' . var_export($image_id, TRUE));
+							$img = wp_get_attachment_image_src($image_id, 'large');
+							if (FALSE !== $img) {
+								add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_upload_media_fields'), 10, 1);
+								$src = $img[0];
+								$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
+								$api->upload_media($args['post_id'], $path, NULL, FALSE, $image_id);
+								remove_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_upload_media_fields'));
+							}
+						}
+						break;
+					case '_upsell_ids':
+					case '_crosssell_ids':
+						$ids = maybe_unserialize($push_data['post_meta'][$meta_key][0]);
+						foreach ($ids as $associated_id) {
+							if (NULL !== ($associated_sync_data = $sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), 'wooproduct'))) {
+								$push_data[$meta_key][$associated_id] = array('target_id' => $associated_sync_data->target_content_id);
+							}
+							$push_data[$meta_key][$associated_id]['source_title'] = get_the_title($associated_id);
+						}
+						break;
+					case '_downloadable_files';
+SyncDebug::log(__METHOD__ . '() found downloadable files data=' . var_export($meta_value, TRUE));
+						$files = maybe_unserialize($push_data['post_meta']['_downloadable_files'][0]);
+						foreach ($files as $file_key => $file) {
+SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
+						}
+						break;
+					case '_min_price_variation_id':
+					case '_max_price_variation_id':
+					case '_min_regular_price_variation_id':
+					case '_max_regular_price_variation_id':
+					case '_min_sale_price_variation_id':
+					case '_max_sale_price_variation_id':
+						$associated_id = $push_data['post_meta'][$meta_key][0];
+						if (NULL !== ($associated_sync_data = $sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), 'woovariableproduct'))) {
+							$push_data[$meta_key][$associated_id] = array('target_id' => $associated_sync_data->target_content_id);
 						}
 						$push_data[$meta_key][$associated_id]['source_title'] = get_the_title($associated_id);
-					}
-				} elseif ('_min_price_variation_id' === $meta_key || '_max_price_variation_id' === $meta_key ||
-					'_min_regular_price_variation_id' === $meta_key || '_max_regular_price_variation_id' === $meta_key ||
-					'_min_sale_price_variation_id' === $meta_key || '_max_sale_price_variation_id' === $meta_key
-				) {
-					$associated_id = $push_data['post_meta'][$meta_key][0];
-						if (NULL !== ($sync_data = $sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), 'woovariableproduct'))) {
-							$push_data[$meta_key][$associated_id] = array('target_id' => $sync_data->target_content_id);
-						}
-					$push_data[$meta_key][$associated_id]['source_title'] = get_the_title($associated_id);
-				} elseif ('_downloadable_files' === $meta_key && NULL !== $meta_value) {
-SyncDebug::log(__METHOD__ . '() found downloadable files data=' . var_export($meta_value, TRUE));
-					$files = maybe_unserialize($push_data['post_meta']['_downloadable_files'][0]);
-					foreach ($files as $file_key => $file) {
-SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
+						break;
+					default:
+						break;
 					}
 				}
 			}
@@ -188,12 +215,8 @@ SyncDebug::log('  src=' . var_export($img, TRUE));
 						// convert site url to relative path
 						if (FALSE !== $img) {
 							$src = $img[0];
-SyncDebug::log('  src=' . var_export($src, TRUE));
-SyncDebug::log('  siteurl=' . site_url());
-SyncDebug::log('  ABSPATH=' . ABSPATH);
-SyncDebug::log('  DOCROOT=' . $_SERVER['DOCUMENT_ROOT']);
 							$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
-							$api->upload_media($var['post_data']['ID'], $path, NULL /*$this->host*/, TRUE, $var['thumbnail']);
+							$api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
 						}
 					}
 				}
@@ -1157,54 +1180,15 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	}
 
 	/**
-	 * Change the content_type for get_sync_data
-	 *
-	 * @since 1.0.0
-	 * @return string
-	 */
-	public function change_media_content_type_variable_product()
-	{
-		return 'woovariableproduct';
-	}
-
-	/**
 	 * Callback used to add the Post ID to the data being sent with an image upload
 	 * @param array $fields An array of data fields being sent with the image in an 'upload_media' API call
 	 * @return array The modified media data, with the post id included
-	 * @todo remove?
 	 */
 	public function filter_upload_media_fields($fields)
 	{
-		if (NULL !== $this->_source_id) {
-SyncDebug::log(__METHOD__ . '() setting variation media parent id: ' . $this->_source_id);
-			$fields['variation_media_id'] = $this->_source_id;
-		}
+SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_export($fields, TRUE));
+		$fields['product_gallery'] = 1;
 		return $fields;
-	}
-
-	/**
-	 * Callback for filtering the post data before it's sent to the Target.
-	 *
-	 * @param array $data The data being Pushed to the Target machine
-	 * @param SyncApiRequest $apirequest Instance of the API Request object
-	 * @return array The modified data
-	 * @todo remove?
-	 */
-	public function filter_push_content($data, $apirequest)
-	{
-SyncDebug::log(__METHOD__ . '()');
-###			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
-###				return $return;
-
-		// look for media references and call SyncApiRequest->send_media() to add media to the Push operation
-		if (isset($data['post_meta'])) {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post meta data: ' . var_export($data['post_meta'], TRUE));
-			$this->load_class('acfpushcontent');
-			$this->load_class('acffieldmodel');
-			$acf_content = new SyncACFPushContent();
-			$data = $acf_content->process_push($data, $apirequest);
-		}
-		return $data;
 	}
 
 	/**
@@ -1217,13 +1201,41 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post meta data: ' . var_e
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
+
+		// if the media was in a product image gallery, replace old id with new id or add to existing
+		$product_gallery = $this->get_int('product_gallery', 0);
+		if (0 === $product_gallery && isset($_POST['product_gallery']))
+			$product_gallery = (int)$_POST['product_gallery'];
+
+		if (1 === $product_gallery) {
+			$old_attach_id = $this->get_int('attach_id', 0);
+			if (0 === $old_attach_id)
+				$old_attach_id = abs($_POST['attach_id']);
+			$gallery_ids = explode(',', get_post_meta($target_post_id, '_product_image_gallery', TRUE));
+
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' gallery_ids=' . var_export($gallery_ids, TRUE));
+			if (in_array($old_attach_id, $gallery_ids)) {
+				foreach ($gallery_ids as $key => $id) {
+					if ($old_attach_id == $id) {
+						$gallery_ids[$key] = $attach_id;
+					}
+				}
+				$gallery_ids = implode(',', $gallery_ids);
+				update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
+			} else {
+				$gallery_ids = implode(',', array_push($gallery_ids, $attach_id));
+				update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
+			}
+			return;
+		}
+
+		// check for variation product if no target post id was found and set as featured image
 		if (0 === $target_post_id) {
 			$api_controller = SyncApiController::get_instance();
 			$site_key = $api_controller->source_site_key;
 			$sync_model = new SyncModel();
 			$sync_data = $sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
 			$new_variation_id = $sync_data->target_content_id;
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target id=' . $target_post_id . ' attach_id=' . $attach_id . ' variation_id=' . var_export($variation_id, TRUE));
 			if (NULL !== $sync_data && 0 !== $attach_id) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$attach_id})");
 				update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
