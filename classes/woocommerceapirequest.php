@@ -141,9 +141,27 @@ SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 
 			// if variable product, add variations
 			if ($product->is_type('variable')) {
-				foreach ($product->get_children() as $id) {
+
+				// get transient of post ids
+				$current_user = wp_get_current_user();
+				$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+
+				if (FALSE === $ids) {
+					$ids = $product->get_children();
+				}
+
+SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
+
+				foreach ($ids as $key => $id) {
 SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 					$push_data['product_variations'][] = $this->_api->get_push_data($id, $push_data);
+					unset($ids[$key]);
+				}
+
+				if (empty($ids)) {
+					delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+				} else {
+					set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
 				}
 			}
 
