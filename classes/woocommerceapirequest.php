@@ -120,12 +120,10 @@ SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 			$api = WPSiteSync_WooCommerce::get_instance()->api;
 			$sync_model = new SyncModel();
 			$push_data = $api->get_push_data($args['post_id'], $push_data);
-			$target_id = 0;
 
 			// get target post id from synced data
 			if (NULL !== ($sync_data = $sync_model->get_sync_target_post($args['post_id'], SyncOptions::get('target_site_key'), 'wooproduct'))) {
 				$push_data['target_post_id'] = $sync_data->target_content_id;
-				$target_id = $sync_data->target_content_id;
 			}
 
 			$push_data['site_key'] = $args['auth']['site_key'];
@@ -184,6 +182,11 @@ SyncDebug::log(__METHOD__ . '() found downloadable files data=' . var_export($me
 						$files = maybe_unserialize($push_data['post_meta']['_downloadable_files'][0]);
 						foreach ($files as $file_key => $file) {
 SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
+							$file_id = attachment_url_to_postid($file['file']);
+							add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'), 10, 1);
+							$path = str_replace(trailingslashit(site_url()), ABSPATH, $file['file']);
+							$api->upload_media($args['post_id'], $path, NULL, FALSE, $file_id);
+							remove_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'));
 						}
 						break;
 					case '_min_price_variation_id':
@@ -217,6 +220,19 @@ SyncDebug::log('  src=' . var_export($img, TRUE));
 							$src = $img[0];
 							$path = str_replace(trailingslashit(site_url()), ABSPATH, $src);
 							$api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
+						}
+					}
+					foreach ($var['post_meta'] as $meta_key => $meta_value) {
+						if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
+SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
+							$files = maybe_unserialize($var['post_meta']['_downloadable_files'][0]);
+							foreach ($files as $file_key => $file) {
+								$file_id = attachment_url_to_postid($file['file']);
+								add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'), 10, 1);
+								$path = str_replace(trailingslashit(site_url()), ABSPATH, $file['file']);
+								$api->upload_media($var['post_data']['ID'], $path, NULL, FALSE, $file_id);
+								remove_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'));
+							}
 						}
 					}
 				}
@@ -283,6 +299,8 @@ SyncDebug::log(__METHOD__ . "() handling '{$action}' action");
 				$response->error_code(self::ERROR_NO_WOOCOMMERCE_PRODUCT_SELECTED);
 				return TRUE;            // return, signaling that the API request was processed
 			}
+
+			add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 1);
 
 			$push_data = $this->post_raw('push_data', array());
 SyncDebug::log(__METHOD__ . '() found push_data information: ' . var_export($push_data, TRUE));
@@ -500,7 +518,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling taxonomies');
 
 			if (array_key_exists('product_variations', $push_data) && !empty($push_data['product_variations'])) {
 SyncDebug::log('adding variations');
-				$variations = $this->_process_variations($target_post_id, $push_data['product_variations'], $api_controller->source_site_key);
+				$variations = $this->_process_variations($target_post_id, $push_data['product_variations']);
 				$response->set('variations', $variations);
 			}
 
@@ -1180,7 +1198,18 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	}
 
 	/**
-	 * Callback used to add the Post ID to the data being sent with an image upload
+	 * Change the content type for get_sync_data
+	 *
+	 * @since 1.0.0
+	 * @return string
+	 */
+	public function change_media_content_type_variable()
+	{
+		return 'woovariableproduct';
+	}
+
+	/**
+	 * Callback used to add product gallery to the data being sent with an image upload
 	 * @param array $fields An array of data fields being sent with the image in an 'upload_media' API call
 	 * @return array The modified media data, with the post id included
 	 */
@@ -1188,6 +1217,18 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	{
 SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_export($fields, TRUE));
 		$fields['product_gallery'] = 1;
+		return $fields;
+	}
+
+	/**
+	 * Callback used to add downloadable to the data being sent with an image upload
+	 * @param array $fields An array of data fields being sent with the image in an 'upload_media' API call
+	 * @return array The modified media data, with the post id included
+	 */
+	public function filter_downloadable_upload_media_fields($fields)
+	{
+SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_export($fields, TRUE));
+		$fields['downloadable'] = 1;
 		return $fields;
 	}
 
@@ -1201,6 +1242,36 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
+
+		// if a downloadable product, replace the url with new URL
+		$downloadable = $this->get_int('downloadable', 0);
+		if (0 === $downloadable && isset($_POST['downloadable']))
+			$downloadable = (int)$_POST['downloadable'];
+
+		if (1 === $downloadable) {
+			if (0 === $target_post_id) {
+				$api_controller = SyncApiController::get_instance();
+				$site_key = $api_controller->source_site_key;
+				$sync_model = new SyncModel();
+				$sync_data = $sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
+				$target_post_id = $sync_data->target_content_id;
+			}
+			$old_attach_id = $this->get_int('attach_id', 0);
+			if (0 === $old_attach_id)
+				$old_attach_id = abs($_POST['attach_id']);
+			$downloads = get_post_meta($target_post_id, '_downloadable_files', TRUE);
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' downloads=' . var_export($downloads, TRUE));
+			foreach ($downloads as $key => $download) {
+				if ($download['file'] === $_POST['img_url']) {
+					// get new attachment url
+					$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
+				}
+			}
+
+			// update post meta
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($target_post_id, '_downloadable_files', {$downloads})");
+			update_post_meta($target_post_id, '_downloadable_files', $downloads);
+		}
 
 		// if the media was in a product image gallery, replace old id with new id or add to existing
 		$product_gallery = $this->get_int('product_gallery', 0);
@@ -1241,6 +1312,24 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 				update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
 			}
 		}
+	}
+
+	/**
+	 * Filter the allowed mime type in upload_media
+	 *
+	 * @since 1.0.0
+	 * @param $default
+	 * @param $img_type
+	 * @return string
+	 */
+	public function filter_allowed_mime_type($default, $img_type)
+	{
+		 $allowed_file_types = apply_filters('woocommerce_downloadable_file_allowed_mime_types', get_allowed_mime_types());
+		if (in_array($img_type['type'], $allowed_file_types)) {
+			return FALSE;
+		}
+
+		return $default;
 	}
 }
 
