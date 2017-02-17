@@ -1359,7 +1359,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 	{
 		$allowed_file_types = apply_filters('woocommerce_downloadable_file_allowed_mime_types', get_allowed_mime_types());
 		if (in_array($img_type['type'], $allowed_file_types)) {
-			return FALSE;
+			return TRUE;
 		}
 
 		return $default;
