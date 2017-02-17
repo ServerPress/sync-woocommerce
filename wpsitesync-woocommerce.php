@@ -26,10 +26,14 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
 		const PLUGIN_VERSION = '1.0';
 		const PLUGIN_KEY = '4151f50e546c7b0a53994d4c27f4cf31';
+		// TODO: this needs to be updated to 1.3.3 before releasing
+		const REQUIRED_VERSION = '1.3.2';									// minimum version of WPSiteSync required for this add-on to initialize
 
 		private function __construct()
 		{
 			add_action('spectrom_sync_init', array(&$this, 'init'));
+			if (is_admin())
+				add_action('wp_loaded', array($this, 'wp_loaded'));
 		}
 
 		/**
@@ -58,6 +62,12 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 //			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
 //				return;
+
+			// check for minimum WPSiteSync version
+			if (is_admin() && version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 && current_user_can('activate_plugins')) {
+				add_action('admin_notices', array($this, 'notice_minimum_version'));
+				return;
+			}
 
 			$this->api = new SyncApiRequest();
 
@@ -115,6 +125,38 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		{
 			$ret = plugin_dir_url(__FILE__) . 'assets/' . $ref;
 			return $ret;
+		}
+
+		/**
+		 * Callback for the 'wp_loaded' action. Used to display admin notice if WPSiteSync for Content is not activated
+		 */
+		public function wp_loaded()
+		{
+			if (!class_exists('WPSiteSyncContent', FALSE) && current_user_can('activate_plugins')) {
+				if (is_admin())
+					add_action('admin_notices', array($this, 'notice_requires_wpss'));
+				return;
+			}
+		}
+
+		/**
+		 * Display admin notice to install/activate WPSiteSync for Content
+		 */
+		public function notice_requires_wpss()
+		{
+			$this->_show_notice(sprintf(__('WPSiteSync for WooCommerce requires the main <em>WPSiteSync for Content</em> plugin to be installed and activated. Please <a href="%1$s">click here</a> to install or <a href="%2$s">click here</a> to activate.', 'wpsitesync-woocommerce'),
+				admin_url('plugin-install.php?tab=search&s=wpsitesync'),
+				admin_url('plugins.php')), 'notice-warning');
+		}
+
+		/**
+		 * Display admin notice to upgrade WPSiteSync for Content plugin
+		 */
+		public function notice_minimum_version()
+		{
+			$this->_show_notice(sprintf(__('WPSiteSync for WooCommerce requires version %1$s or greater of <em>WPSiteSync for Content</em> to be installed. Please <a href="2%s">click here</a> to update.', 'wpsitesync-woocommerce'),
+				self::REQUIRED_VERSION,
+				admin_url('plugins.php')), 'notice-warning');
 		}
 
 		/**
