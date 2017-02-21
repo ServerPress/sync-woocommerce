@@ -71,7 +71,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
     if (this.disable || !this.inited)
         return;
 
-    wpsitesynccontent.set_message(jQuery('#sync-msg-working').text(), true);
+    wpsitesynccontent.set_message(jQuery('#sync-msg-working').text('Pushing Content to Target... Please Stay on This Page'), true);
 
     this.post_id = post_id;
 
@@ -87,6 +87,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
         async: true, // false,
         data: data,
         url: ajaxurl,
+       // timeout: 20000,
         success: function (response)
         {
 //console.log('in ajax success callback - response');
@@ -103,10 +104,14 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
                     wpsitesynccontent.set_message(response.data.message, false, true);
             }
         },
-        error: function (response)
+        error: function (response, textstatus, message)
         {
-            if ('undefined' !== typeof(response.error_message))
-                wpsitesynccontent.set_message('<span class="error">' + response.error_message + '</span>', false, true);
+            // if (textstatus === 'timeout') {
+            //     wpsitesynccontent.woocommerce.push_woocommerce(post_id);
+            // } else {
+                if ('undefined' !== typeof(response.error_message))
+                    wpsitesynccontent.set_message('<span class="error">' + response.error_message + '</span>', false, true);
+            //}
         }
     });
 };
@@ -128,7 +133,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function (post_id)
 
     jQuery('.pull-actions').hide();
     jQuery('.pull-loading-indicator').show();
-    wpsitesynccontent.set_message(jQuery('#sync-msg-pull-working').text(), true);
+    wpsitesynccontent.set_message(jQuery('#sync-msg-pull-working').text('Pulling Content From Target... Please Stay on This Page'), true);
 
     this.post_id = post_id;
 

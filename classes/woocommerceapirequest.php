@@ -14,12 +14,15 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const ERROR_WOOCOMMERCE_NOT_ACTIVATED = 603;
 
 	const NOTICE_PRODUCT_MODIFIED = 600;
+	const NOTICE_CANNOT_UPLOAD_WOOCOMMERCE = 604;
 
 	private $_post_id;
 	private $_api;
 	private $_sync_model;
 	private $_api_controller;
 	private $_push_controller;
+	public $media_id;
+	public $local_media_name;
 
 	/**
 	 * Filters the errors list, adding SyncWooCommerce specific code-to-string values
@@ -59,6 +62,9 @@ class SyncWooCommerceApiRequest extends SyncInput
 		switch ($code) {
 		case self::NOTICE_PRODUCT_MODIFIED:
 			$message = __('WooCommerce Product has been modified on Target site since the last Push. Continue?', 'wpsitesync-woocommerce');
+			break;
+		case self::NOTICE_CANNOT_UPLOAD_WOOCOMMERCE:
+			$message = __('You do not have permission to upload media', 'wpsitesync-woocommerce');
 			break;
 		}
 		return $message;
@@ -152,7 +158,7 @@ SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 
 SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
 
-				foreach ($ids as $key => $id) {
+				foreach ($ids as $key => &$id) {
 SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 					$push_data['product_variations'][] = $this->_api->get_push_data($id, $push_data);
 					unset($ids[$key]);
@@ -161,6 +167,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				if (empty($ids)) {
 					delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
 				} else {
+SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
 					set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
 				}
 			}
@@ -537,6 +544,7 @@ SyncDebug::log(__METHOD__ . '() pull post id=' . var_export($post_id, TRUE));
 
 			$pull_data = array();
 			$this->_api = WPSiteSync_WooCommerce::get_instance()->api;
+			add_filter('spectrom_sync_api_push_content', array(WPSiteSync_Pull::get_instance(), 'filter_push_data'), 10, 2);
 			$pull_data = $this->_api->get_push_data($post_id, $pull_data);
 
 			// get product type
@@ -686,8 +694,12 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - pull data=' . var_export($pul
 				$pull_data['pull'] = TRUE;
 
 				$_POST['post_id'] = $_REQUEST['post_id'];
+				//$_POST['post_id'] = abs($api_response->data->post_data->ID);
+				//$_POST['target_post_id'] = abs($_REQUEST['post_id']);    // used by SyncApiController->push() to identify target post
 				$_POST['push_data'] = $pull_data;
 				$_POST['action'] = 'pushwoocommerce';
+				$_POST['pull_media'] = $pull_data['pull_media'];
+SyncDebug::log(__METHOD__ . '() pull media: ' . var_export($_POST['pull_media'], TRUE));
 
 				$args = array(
 					'action' => 'pushwoocommerce',
@@ -702,6 +714,11 @@ SyncDebug::log(__METHOD__ . '() creating controller with: ' . var_export($args, 
 				$this->_push_controller = new SyncApiController($args);
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - returned from controller');
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - response=' . var_export($response, TRUE));
+
+				if (isset($_POST['pull_media'])) {
+SyncDebug::log(__METHOD__ . '() - found ' . count($_POST['pull_media']) . ' media items');
+					$this->_handle_media(intval($_POST['post_id']), $_POST['pull_media'], $response);
+				}
 
 				$_POST = $save_post;
 
@@ -1273,10 +1290,11 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
 	 * @param int $target_post_id The Post ID of the Content being pushed
 	 * @param int $attach_id The attachment's ID
 	 * @param int $media_id The media id
+	 * @todo needs reworked - use media_id, attach_id instead of post attach id
 	 */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
-SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
+SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
 
@@ -1359,7 +1377,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 	{
 		$allowed_file_types = apply_filters('woocommerce_downloadable_file_allowed_mime_types', get_allowed_mime_types());
 		if (in_array($img_type['type'], $allowed_file_types)) {
-			return TRUE;
+			return FALSE;
 		}
 
 		return $default;
@@ -1437,6 +1455,168 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 		$associated['source_title'] = get_the_title($associated_id);
 
 		return $associated;
+	}
+
+	/**
+	 * Handle media file transfers during 'pull' operations
+	 * @param int $source_post_id The post ID on the Source
+	 * @param array $media_items The $_POST['pull_media'] data
+	 * @param SyncApiResponse $response The response instance
+	 * @todo pull keeps making new images instead of finding existing - push too
+	 */
+	private function _handle_media($source_post_id, $media_items, $response)
+	{
+		// adopted from SyncApiController::upload_media()
+
+		/*		The media data - built in SyncApiRequest->_upload_media()
+					'name' => 'value',
+					'post_id' => 219,
+					'featured' => 0,
+					'boundary' => 'zLR%keXstULAd!#89fmZIq2%',
+					'img_path' => '/path/to/wp/wp-content/uploads/2016/04',
+					'img_name' => 'image-name.jpg',
+					'img_url' => 'http://target.com/wp-content/uploads/2016/04/image-name.jpg',
+					'attach_id' => 277,
+					'attach_desc' => '',
+					'attach_title' => 'image-name',
+					'attach_caption' => '',
+					'attach_name' => 'image-name',
+					'attach_alt' => '',
+		 */
+		// check that user can upload files
+		if (!current_user_can('upload_files')) {
+			$response->notice_code(self::NOTICE_CANNOT_UPLOAD_WOOCOMMERCE);
+		}
+
+		require_once(ABSPATH . 'wp-admin/includes/image.php');
+		require_once(ABSPATH . 'wp-admin/includes/file.php');
+		require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+		add_filter('wp_handle_upload', array(SyncApiController::get_instance(), 'handle_upload'));
+
+		// TODO: check uploaded file contents to ensure it's an image
+		// https://en.wikipedia.org/wiki/List_of_file_signatures
+
+		$upload_dir = wp_upload_dir();
+SyncDebug::log(__METHOD__ . '() upload dir=' . var_export($upload_dir, TRUE));
+		foreach ($media_items as $media_file) {
+			// check if this is the featured image
+			$featured = isset($media_file['featured']) ? intval($media_file['featured']) : 0;
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' featured=' . $featured);
+
+			// move remote file to local site
+			$path = $upload_dir['basedir'] . '/' . $media_file['img_name']; // tempnam(sys_get_temp_dir(), 'snc');
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' work file=' . $path . ' url=' . $media_file['img_url']);
+			file_put_contents($path, file_get_contents($media_file['img_url']));
+			$temp_name = tempnam(sys_get_temp_dir(), 'syn');
+SyncDebug::log(__METHOD__ . '() temp name=' . $temp_name);
+			copy($path, $temp_name);
+
+			// get just the basename - no extension - of the image being transferred
+			$ext = pathinfo($media_file['img_name'], PATHINFO_EXTENSION);
+			$basename = basename($media_file['img_name'], $ext);
+
+			// check file type
+			$img_type = wp_check_filetype($path);
+			$mime_type = $img_type['type'];
+SyncDebug::log(__METHOD__ . '() found image type=' . $img_type['ext'] . '=' . $img_type['type']);
+			if (//(FALSE === strpos($mime_type, 'image/') && 'pdf' !== $img_type['ext']) ||
+			apply_filters('spectrom_sync_upload_media_allowed_mime_type', FALSE, $img_type)
+			) {
+				$response->error_code(SyncApiRequest::ERROR_INVALID_IMG_TYPE);
+				$response->send();
+			}
+
+			global $wpdb;
+			$sql = "SELECT `ID`
+						FROM `{$wpdb->posts}`
+						WHERE `post_name`=%s AND `post_type`='attachment'";
+			$res = $wpdb->get_col($wpdb->prepare($sql, $basename));
+			$attachment_id = 0;
+			if (0 != count($res))
+				$attachment_id = intval($res[0]);
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attach id=' . $attachment_id);
+
+			$target_post_id = intval($media_file['post_id']);
+
+			$this->media_id = 0;
+			$this->local_media_name = '';
+
+			// set this up for wp_handle_upload() calls
+			$overrides = array(
+				'test_form' => FALSE,            // really needed because we're not submitting via a form
+				'test_size' => FALSE,            // don't worry about the size
+				'unique_filename_callback' => array(SyncApiController::get_instance(), 'unique_filename_callback'),
+				'action' => 'wp_handle_sideload', // 'wp_handle_upload',
+			);
+
+			// check if attachment exists
+			if (0 !== $attachment_id) {
+				// if it's the featured image, set that
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' checking featured image - source=' . $source_post_id . ' attach=' . $attachment_id);
+				if ($featured && 0 !== $source_post_id)
+					set_post_thumbnail($source_post_id, $attachment_id);
+			} else {
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found no image - adding to library');
+				$time = str_replace('\\', '/', substr($media_file['img_path'], -7));
+				$_POST['action'] = 'wp_handle_upload';        // shouldn't have to do this with $overrides['test_form'] = FALSE
+				$_POST['action'] = 'wp_handle_sideload';
+				// construct the $_FILES element
+				$file_info = array(
+					'name' => $media_file['img_name'],
+					'type' => $img_type['type'],
+					'tmp_name' => $temp_name,
+					'error' => 0,
+					'size' => filesize($path),
+				);
+				$_FILES['sync_file_upload'] = $file_info;
+SyncDebug::log(' files=' . var_export($_FILES, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' sending to wp_handle_upload(): ' . var_export($file_info, TRUE));
+				$file = wp_handle_upload($file_info, $overrides, $time);
+
+SyncDebug::log(__METHOD__ . '() returned: ' . var_export($file, TRUE));
+				if (!is_array($file) || isset($file['error'])) {
+
+					$has_error = TRUE;
+					$response->notice_code(SyncApiRequest::ERROR_FILE_UPLOAD, $ret->get_error_message());
+				} else {
+					$upload_file = $upload_dir['baseurl'] . '/' . $time . '/' . basename($file['file']);
+
+					$attachment = array(        // create attachment for our post
+						'post_title' => $media_file['attach_title'],
+						'post_name' => $media_file['attach_name'],
+						'post_content' => $media_file['attach_desc'],
+						'post_excerpt' => $media_file['attach_caption'],
+						'post_status' => 'inherit',
+						'post_mime_type' => $file['type'],    // type of attachment
+						'post_parent' => $source_post_id,    // post id
+						'guid' => $upload_file,
+					);
+SyncDebug::log(__METHOD__ . '() insert attachment parameters: ' . var_export($attachment, TRUE));
+					$attach_id = wp_insert_attachment($attachment, $file['file'], $source_post_id);    // insert post attachment
+SyncDebug::log(__METHOD__ . "() wp_insert_attachment([..., '{$file['file']}', {$source_post_id}) returned {$attach_id}");
+					$attach = wp_generate_attachment_metadata($attach_id, $file['file']);    // generate metadata for new attacment
+SyncDebug::log(__METHOD__ . "() wp_generate_attachment_metadata({$attach_id}, '{$file['file']}') returned " . var_export($attach, TRUE));
+					update_post_meta($attach_id, '_wp_attachment_image_alt', $media_file['attach_alt'], TRUE);
+					wp_update_attachment_metadata($attach_id, $attach);
+					$this->media_id = $attach_id;
+
+					// if it's the featured image, set that
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' featured=' . $featured . ' source=' . $source_post_id . ' attach=' . $attach_id);
+					if ($featured && 0 !== $source_post_id) {
+SyncDebug::log(__METHOD__ . "() set_post_thumbnail({$source_post_id}, {$attach_id})");
+						set_post_thumbnail($source_post_id, $attach_id);
+					}
+				}
+			}
+
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' removing work file ' . $path . ' and temp file ' . $temp_name);
+			unlink($path);
+			if (file_exists($temp_name))
+				unlink($temp_name);
+
+			do_action('spectrom_sync_media_processed', $source_post_id, $attachment_id, $this->media_id);
+		}
 	}
 }
 
