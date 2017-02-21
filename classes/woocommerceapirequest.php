@@ -288,7 +288,7 @@ SyncDebug::log(__METHOD__ . "() handling '{$action}' action");
 				return TRUE;            // return, signaling that the API request was processed
 			}
 
-			add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 1);
+			add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 2);
 
 			$push_data = $this->post_raw('push_data', array());
 SyncDebug::log(__METHOD__ . '() found push_data information: ' . var_export($push_data, TRUE));
