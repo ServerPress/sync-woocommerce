@@ -221,7 +221,7 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 					// process variation featured image
 					if (0 != $var['thumbnail']) {
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
-						$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
+						$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 						if (FALSE !== $img) {
 							$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
 							$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
@@ -610,7 +610,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 					// process variation featured image
 					if (0 != $var['thumbnail']) {
 						SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
-						$img = wp_get_attachment_image_src($var['thumbnail'], 'large');
+						$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 						if (FALSE !== $img) {
 							$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
 							$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
@@ -1290,8 +1290,7 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
 	 * @param int $target_post_id The Post ID of the Content being pushed
 	 * @param int $attach_id The attachment's ID
 	 * @param int $media_id The media id
-	 * @todo needs reworked - use media_id, attach_id instead of post attach id
-	 */
+ */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
@@ -1317,7 +1316,12 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' .
 			foreach ($downloads as $key => $download) {
 				if ($download['file'] === $_POST['img_url']) {
 					// get new attachment url
-					$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
+					if (0 === $attach_id) {
+						$downloads[$key]['file'] = wp_get_attachment_url($media_id);
+					} else {
+						$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
+
+					}
 				}
 			}
 
@@ -1341,7 +1345,11 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . '
 			if (in_array($old_attach_id, $gallery_ids)) {
 				foreach ($gallery_ids as $key => $id) {
 					if ($old_attach_id == $id) {
-						$gallery_ids[$key] = $attach_id;
+						if (0 === $attach_id) {
+							$gallery_ids[$key] = $media_id;
+						} else {
+							$gallery_ids[$key] = $attach_id;
+						}
 					}
 				}
 				$gallery_ids = implode(',', $gallery_ids);
@@ -1360,7 +1368,11 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . '
 			$new_variation_id = $sync_data->target_content_id;
 			if (NULL !== $sync_data && 0 !== $attach_id) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$attach_id})");
-				update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
+				if (0 === $attach_id) {
+					update_post_meta($new_variation_id, '_thumbnail_id', $media_id);
+				} else {
+					update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
+				}
 			}
 		}
 	}
@@ -1395,7 +1407,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 		$ids = explode(',', $meta_value[0]);
 		foreach ($ids as $image_id) {
 SyncDebug::log(__METHOD__ . '() adding product image id=' . var_export($image_id, TRUE));
-			$img = wp_get_attachment_image_src($image_id, 'large');
+			$img = wp_get_attachment_image_src($image_id, 'full');
 			if (FALSE !== $img) {
 				add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_upload_media_fields'), 10, 1);
 				$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
@@ -1462,7 +1474,6 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 	 * @param int $source_post_id The post ID on the Source
 	 * @param array $media_items The $_POST['pull_media'] data
 	 * @param SyncApiResponse $response The response instance
-	 * @todo pull keeps making new images instead of finding existing - push too
 	 */
 	private function _handle_media($source_post_id, $media_items, $response)
 	{
@@ -1512,15 +1523,12 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' work file=' . $path . ' url=' .
 SyncDebug::log(__METHOD__ . '() temp name=' . $temp_name);
 			copy($path, $temp_name);
 
-			// get just the basename - no extension - of the image being transferred
-			$ext = pathinfo($media_file['img_name'], PATHINFO_EXTENSION);
-			$basename = basename($media_file['img_name'], $ext);
-
 			// check file type
 			$img_type = wp_check_filetype($path);
 			$mime_type = $img_type['type'];
+			$basename = basename($media_file['img_name'], '.' . $img_type['ext']);
 SyncDebug::log(__METHOD__ . '() found image type=' . $img_type['ext'] . '=' . $img_type['type']);
-			if (//(FALSE === strpos($mime_type, 'image/') && 'pdf' !== $img_type['ext']) ||
+			if ((FALSE === strpos($mime_type, 'image/') && 'pdf' !== $img_type['ext']) ||
 			apply_filters('spectrom_sync_upload_media_allowed_mime_type', FALSE, $img_type)
 			) {
 				$response->error_code(SyncApiRequest::ERROR_INVALID_IMG_TYPE);
