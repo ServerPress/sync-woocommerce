@@ -77,7 +77,8 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 
     var data = {
         action: 'spectrom_sync',
-        operation: 'pushwoocommerce',
+        //operation: 'pushwoocommerce',
+        operation: 'push',
         post_id: post_id,
         _sync_nonce: jQuery('#_sync_nonce').val()
     };
