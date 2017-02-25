@@ -137,35 +137,35 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 		$data['product_type'] = $product->get_type();
 
 		// if variable product, add variations
-		//if ($product->is_type('variable')) {
+		if ($product->is_type('variable')) {
+
+			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
 			// @todo renablle
-//			// get transient of post ids
-//			$ids = FALSE; // remove
-////			$current_user = wp_get_current_user();
-////			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
-//
-//			if (FALSE === $ids) {
-//				$ids = $product->get_children();
-//			}
-//
-//SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
-//
-//			foreach ($ids as $key => &$id) {
-//SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
-//				$data['product_variations'][] = $this->_api->get_push_data($id, $data);
-//				unset($ids[$key]);
-//			}
-//
-////			if (empty($ids)) {
-////				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
-////			} else {
-////SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
-////				set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
-////			}
-//		}
-//
+			// get transient of post ids
+			$ids = FALSE; // remove
+//			$current_user = wp_get_current_user();
+//			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
 
+			if (FALSE === $ids) {
+				$ids = $product->get_children();
+			}
+
+SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
+
+			foreach ($ids as $key => &$id) {
+SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
+				$data['product_variations'][] = $this->_api->get_push_data($id, $data);
+				unset($ids[$key]);
+			}
+
+//			if (empty($ids)) {
+//				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+//			} else {
+//SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
+//				set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
+//			}
+		}
 
 		// process meta values
 		foreach ($data['post_meta'] as $meta_key => $meta_value) {
@@ -173,17 +173,17 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 			if (NULL !== $meta_value && !empty($meta_value)) {
 				switch ($meta_key) {
 				case '_product_image_gallery':
-					$this->_process_product_gallery($data['post_id'], $meta_value);
+					$this->_get_product_gallery($data['post_id'], $meta_value);
 					break;
 				case '_upsell_ids':
 				case '_crosssell_ids':
 					$ids = maybe_unserialize($meta_value[0]);
 					foreach ($ids as $associated_id) {
-						$data[$meta_key][$associated_id] = $this->_process_associated_products($associated_id);
+						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id);
 					}
 					break;
 				case '_downloadable_files';
-					$this->_process_downloadable_files($data['post_id'], $meta_value);
+					$this->_get_downloadable_files($data['post_id'], $meta_value);
 					break;
 				case '_min_price_variation_id':
 				case '_max_price_variation_id':
@@ -192,7 +192,7 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 				case '_min_sale_price_variation_id':
 				case '_max_sale_price_variation_id':
 					$associated_id = $meta_value[0];
-					$data[$meta_key][$associated_id] = $this->_process_associated_products($associated_id, 'woovariableproduct');
+					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct');
 					break;
 				default:
 					break;
@@ -210,6 +210,7 @@ SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 					if (FALSE !== $img) {
 						$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
+						// @todo change to sendmedia, apirequest
 						$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
 					}
 				}
@@ -218,7 +219,7 @@ SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['
 					// process downloadable files
 					if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
 SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
-						$this->_process_downloadable_files($var['post_data']['ID'], $meta_value);
+						$this->_get_downloadable_files($var['post_data']['ID'], $meta_value);
 					}
 				}
 			}
@@ -237,88 +238,12 @@ SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
 	 * @param string $action The API requested
 	 * @param array $remote_args Array of arguments sent to SyncRequestApi::api()
 	 * @return array The modified $args array, with any additional information added to it
-	 * @todo remove
+	 * @todo remove?
 	 */
 	public function api_request($args, $action, $remote_args)
 	{
 SyncDebug::log(__METHOD__ . '() action=' . $action);
-
-//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
-//			return $args;
-
-
-//		if ('pushwoocommerce' === $action) {
-//
-//			$push_data['site_key'] = $args['auth']['site_key'];
-//			$push_data['pull'] = FALSE;
-//
-//
-//			// if variable product, add variations
-//			if ($product->is_type('variable')) {
-//
-//				// get transient of post ids
-//				$current_user = wp_get_current_user();
-//				$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
-//
-//				if (FALSE === $ids) {
-//					$ids = $product->get_children();
-//				}
-//
-//SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
-//
-//				foreach ($ids as $key => &$id) {
-//SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
-//					$push_data['product_variations'][] = $this->_api->get_push_data($id, $push_data);
-//					unset($ids[$key]);
-//				}
-//
-//				if (empty($ids)) {
-//					delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
-//				} else {
-//SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
-//					set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
-//				}
-//			}
-//
-//			// send post parent and post title for groupings if listed in sync table
-//			if (0 !== $push_data['post_data']['post_parent']) {
-//				$sync_parent_data = $this->_sync_model->get_sync_target_post($push_data['post_data']['post_parent'], SyncOptions::get('target_site_key'), 'wooproduct');
-//				if (NULL !== $sync_parent_data) {
-//					$push_data['grouping_parent'] = array('target_id' => $sync_parent_data->target_content_id);
-//				}
-//				$push_data['grouping_parent']['source_title'] = get_the_title($push_data['post_data']['post_parent']);
-//			}
-//
-//			// check if any featured images or downloads in variations need to be added to queue
-//			if (array_key_exists('product_variations', $push_data)) {
-//				foreach ($push_data['product_variations'] as $var) {
-//
-//					// process variation featured image
-//					if (0 != $var['thumbnail']) {
-//SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
-//						$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
-//						if (FALSE !== $img) {
-//							$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
-//							$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
-//						}
-//					}
-//
-//					foreach ($var['post_meta'] as $meta_key => $meta_value) {
-//						// process downloadable files
-//						if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
-//SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
-//							$this->_process_downloadable_files($var['post_data']['ID'], $meta_value);
-//						}
-//					}
-//				}
-//			}
-//
-//			$push_data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
-//
-//SyncDebug::log(__METHOD__ . '() push_data=' . var_export($push_data, TRUE));
-//			$args['push_data'] = $push_data;
-
-//		} else if ('pullwoocommerce' === $action) {
+	 	//if ('pullwoocommerce' === $action) {
 //SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
 //
 ////			if (NULL !== ($sync_data = $this->_sync_model->get_sync_data($this->post_int('post_id', 0), SyncOptions::get('site_key'), 'wooproduct'))) {
@@ -333,29 +258,6 @@ SyncDebug::log(__METHOD__ . '() action=' . $action);
 	}
 
 	/**
-	 * Allow add-ons to modify the ultimate target post id
-	 *
-	 * @since 1.0.0
-	 * @param $target_post_id
-	 * @param $source_post_id
-	 * @param $source_site_key
-	 * @return mixed|void
-	 * @todo remove
-	 */
-	public function change_target_id($target_post_id, $source_post_id, $source_site_key) {
-		if (0 === $target_post_id) {
-			$this->_sync_model = new SyncModel();
-			$sync_data = $this->_sync_model->get_sync_data($source_post_id, $source_site_key, 'wooproduct');
-			if (NULL !== $sync_data) {
-SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
-				$target_post_id = $sync_data->target_content_id;
-			}
-		}
-
-		return $target_post_id;
-	}
-
-	/**
 	 * Handles fixup of data on the Target after SyncApiController has finished processing Content.
 	 * @param int $target_post_id The post ID being created/updated via API call
 	 * @param array $post_data Post data sent via API call
@@ -365,7 +267,6 @@ SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id})");
 
-		// @todo does this need moved?
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($post_data, TRUE));
@@ -379,10 +280,8 @@ SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($pos
 SyncDebug::log(__METHOD__ . '() source domain: ' . var_export($this->post_raw('source_domain', ''), TRUE));
 
 		$product_type = $this->post_raw('product_type', '');
-		$source_post_id = abs($post_data['ID']);
-		$post_meta = $this->post_raw('post_meta', array());
-
 		$response->set('product_type', $product_type);
+		$post_meta = $this->post_raw('post_meta', array());
 
 		// sync metadata
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling meta data');
@@ -393,90 +292,48 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling meta data');
 			if ('_product_attributes' === $meta_key) {
 SyncDebug::log('   processing product attributes: ');
 SyncDebug::log(__METHOD__ . '() meta value: ' . var_export($meta_value, TRUE));
-// @todo push_data no more
-				//$this->_add_attributes($target_post_id, $meta_value[0], $push_data);
+				$this->_process_attributes($target_post_id, $meta_value[0]);
 			} else {
 				foreach ($meta_value as $value) {
 					$value = maybe_unserialize(stripslashes($value));
 SyncDebug::log('   meta value ' . var_export($value, TRUE));
-					if ('_upsell_ids' === $meta_key || '_crosssell_ids' === $meta_key) {
+					switch ($meta_key) {
+					case '_upsell_ids':
+					case '_crosssell_ids':
 						$target_ids = $this->post_raw($meta_key, array());
 						$new_meta_ids = array();
-						$new_id = NULL;
+
 						foreach ($value as $meta_source_id) {
-							if (array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
-SyncDebug::log(' - found push target post #' . $target_ids[$meta_key][$meta_source_id]['target_id']);
-								$meta_post = get_post($target_ids[$meta_key][$meta_source_id]['target_id']);
-							}
-							// lookup source_id in sync table
-							if (NULL === $meta_post) {
-								$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'wooproduct');
-								if (NULL !== $sync_data) {
-SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
-									$new_id = $sync_data->target_content_id;
-								} else {
-									// if no match, check for matching title
-SyncDebug::log(' - still no product found - look up by title');
-									$meta_post = $this->_get_product_by_title($target_ids[$meta_key][$meta_source_id]['source_title']);
-									if (NULL !== $meta_post) {
-										$new_id = $meta_post->ID;
-									}
-								}
-							} else {
-								$new_id = $meta_post->ID;
-							}
-							if (NULL !== $new_id) {
-								$new_meta_ids[] = $new_id;
-							}
+							$new_meta_ids = $this->_process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids);
 						}
+							update_post_meta($target_post_id, $meta_key, $new_meta_ids);
+						break;
+					case '_min_price_variation_id':
+					case '_max_price_variation_id':
+					case '_min_regular_price_variation_id':
+					case '_max_regular_price_variation_id':
+					case '_min_sale_price_variation_id':
+					case '_max_sale_price_variation_id':
+						$values = $this->post_raw($meta_key, array());
+						$new_id = $this->_process_variation_ids($values, $value);
 SyncDebug::log('  updating post_meta for ' . var_export($meta_key, TRUE));
-SyncDebug::log('  updating post_meta with  ' . var_export($new_meta_ids, TRUE));
+SyncDebug::log('  updating post_meta with  ' . var_export($new_id, TRUE));
 SyncDebug::log('  updating post_meta for target id ' . var_export($target_post_id, TRUE));
-						update_post_meta($target_post_id, $meta_key, $new_meta_ids);
-					} elseif ('_min_price_variation_id' === $meta_key || '_max_price_variation_id' === $meta_key ||
-						'_min_regular_price_variation_id' === $meta_key || '_max_regular_price_variation_id' === $meta_key ||
-						'_min_sale_price_variation_id' === $meta_key || '_max_sale_price_variation_id' === $meta_key
-					) {
-						$new_id = NULL;
-						if (array_key_exists('target_id', $post_meta[$meta_key][$meta_source_id])) {
-SyncDebug::log(' - found target post #' . $post_meta[$meta_key][$meta_source_id]['target_id']);
-							$meta_post = get_post($post_meta[$meta_key][$meta_source_id]['target_id']);
-						}
-						// lookup source_id in sync table
-						if (NULL === $meta_post) {
-							$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'wooproduct');
-							if (NULL !== $sync_data) {
-SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
-								$new_id = $sync_data->target_content_id;
-							} else {
-								// if no match, check for matching title
-SyncDebug::log(' - still no product found - look up by title');
-								$meta_post = $this->_get_product_by_title($post_meta[$meta_key][$meta_source_id]['source_title']);
-								if (NULL !== $meta_post) {
-									$new_id = $meta_post->ID;
-								}
-							}
-						} else {
-							$new_id = $meta_post->ID;
-						}
 						update_post_meta($target_post_id, $meta_key, $new_id);
-					} else {
-						update_post_meta($target_post_id, $meta_key, $value);
+						break;
+					default:
+						break;
 					}
 				}
 			}
 		}
 
-		// @todo needed?
-//SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling taxonomies');
-		//$this->_process_taxonomies($target_post_id, $push_data['taxonomies']);
-
-
-//		if (array_key_exists('product_variations', $push_data) && !empty($push_data['product_variations'])) {
-//SyncDebug::log('adding variations');
-//			$variations = $this->_process_variations($target_post_id, $push_data['product_variations']);
-//			$response->set('variations', $variations);
-//		}
+		$product_variations = $this->post_raw('product_variations', array());
+		if (!empty($product_variations)) {
+SyncDebug::log('adding variations');
+			$variations = $this->_process_variations($target_post_id, $product_variations);
+			$response->set('variations', $variations);
+		}
 
 		// clear transients
 		WC_Post_Data::delete_product_query_transients();
@@ -582,17 +439,17 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				if (NULL !== $meta_value && !empty($meta_value)) {
 					switch ($meta_key) {
 					case '_product_image_gallery':
-						$this->_process_product_gallery($post_id, $meta_value);
+						$this->_get_product_gallery($post_id, $meta_value);
 						break;
 					case '_upsell_ids':
 					case '_crosssell_ids':
 						$ids = maybe_unserialize($meta_value[0]);
 						foreach ($ids as $associated_id) {
-							$pull_data[$meta_key][$associated_id] = $this->_process_associated_products($associated_id, 'wooproduct', 'pull');
+							$pull_data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'wooproduct', 'pull');
 						}
 						break;
 					case '_downloadable_files';
-						$this->_process_downloadable_files($post_id, $meta_value);
+						$this->_get_downloadable_files($post_id, $meta_value);
 						break;
 					case '_min_price_variation_id':
 					case '_max_price_variation_id':
@@ -601,7 +458,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 					case '_min_sale_price_variation_id':
 					case '_max_sale_price_variation_id':
 						$associated_id = $meta_value[0];
-						$pull_data[$meta_key][$associated_id] = $this->_process_associated_products($associated_id, 'woovariableproduct', 'pull');
+						$pull_data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct', 'pull');
 						break;
 					default:
 						break;
@@ -627,7 +484,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 						// process downloadable files
 						if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
 							SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
-							$this->_process_downloadable_files($var['post_data']['ID'], $meta_value);
+							$this->_get_downloadable_files($var['post_data']['ID'], $meta_value);
 						}
 					}
 				}
@@ -793,217 +650,6 @@ SyncDebug::log(__METHOD__ . '(): variable product');
 	}
 
 	/**
-	 * Handle taxonomy information for the push request
-	 * @param int $post_id The Post ID being updated via the push request
-	 * @param array $taxonomies Associated taxonomies
-	 * @todo remove?
-	 */
-	private function _process_taxonomies($post_id, $taxonomies)
-	{
-SyncDebug::log(__METHOD__ . '(' . $post_id . ')');
-
-		/**
-		 * $taxonomies - this is the taxonomy data sent from the Source site via the push API
-		 */
-
-SyncDebug::log(__METHOD__ . '() found taxonomy information: ' . var_export($taxonomies, TRUE));
-
-		//
-		// process the flat taxonomies
-		//
-		/**
-		 * $tags - reference to the $taxonomies['tags'] array while processing flat taxonomies (or tags)
-		 * $terms - reference to the $taxonomies['hierarchical'] array while processing hierarchical taxonomies (or categories)
-		 * $term_info - foreach() iterator value while processing taxonomy data; an array of the taxonomy information from Source site
-		 * $tax_type - the name of the taxonomy item being processed, 'category' or 'post_tag' for example (used in both flat and hierarchical processing)
-		 * $term - the searched taxonomy term object when looking up the taxonomy slug/$tax_type on local system
-		 */
-		if (isset($taxonomies['flat']) && !empty($taxonomies['flat'])) {
-			$tags = $taxonomies['flat'];
-SyncDebug::log(__METHOD__ . '() found ' . count($tags) . ' taxonomy tags');
-			foreach ($tags as $term_info) {
-				$tax_type = $term_info['taxonomy'];
-				$term = get_term('slug', $term_info['slug'], $tax_type, OBJECT);
-SyncDebug::log(__METHOD__ . '() found taxonomy ' . $tax_type);
-				if (FALSE === $term) {
-					// term not found - create it
-					$args = array(
-						'description' => $term_info['description'],
-						'slug' => $term_info['slug'],
-						'taxonomy' => $term_info['taxonomy'],
-					);
-					$ret = wp_insert_term($term_info['name'], $tax_type, $args);
-SyncDebug::log(__METHOD__ . '() insert term [flat] result: ' . var_export($ret, TRUE));
-				} else {
-SyncDebug::log(__METHOD__ . '() term already exists');
-				}
-				$ret = wp_add_object_terms($post_id, $term_info['slug'], $tax_type);
-SyncDebug::log(__METHOD__ . '() add [flat] object terms result: ' . var_export($ret, TRUE));
-			}
-		}
-
-		//
-		// process the hierarchical taxonomies
-		//
-		/**
-		 * $lineage - an array of parent taxonomies that indicate the full lineage of the term that needs to be assigned
-		 * $parent - the integer parent term_id to look for in $taxonomies['lineage'] in order to find items when building the $lineage array
-		 * $tax_term - the foreach() iterator while searching $taxonomies['lineage'] for parent taxonomy terms
-		 * $child_terms - the term children for each taxonomy; used when searching through Target terms to find correct child within hierarchy
-		 * $term_id - foreach() iterator while looking through $child_terms
-		 * $term_child - child term indicated by $term_id; used to match with $tax_term['slug'] to match child taxonomies
-		 */
-		if (isset($taxonomies['hierarchical']) && !empty($taxonomies['hierarchical'])) {
-			$terms = $taxonomies['hierarchical'];
-			foreach ($terms as $term_info) {
-				$tax_type = $term_info['taxonomy'];
-SyncDebug::log(__METHOD__ . '() build lineage for taxonomy: ' . $tax_type);
-
-				// first, build a lineage list of the taxonomy terms
-				$lineage = array();
-				$lineage[] = $term_info;            // always add the current term to the lineage
-				$parent = intval($term_info['parent']);
-SyncDebug::log(__METHOD__ . '() looking for parent term #' . $parent);
-				if (isset($taxonomies['lineage'][$tax_type])) {
-					while (0 !== $parent) {
-						foreach ($taxonomies['lineage'][$tax_type] as $tax_term) {
-SyncDebug::log(__METHOD__ . '() checking lineage for #' . $tax_term['term_id'] . ' - ' . $tax_term['slug']);
-							if ($tax_term['term_id'] == $parent) {
-SyncDebug::log(__METHOD__ . '() - found term ' . $tax_term['slug'] . ' as a child of ' . $parent);
-								$lineage[] = $tax_term;
-								$parent = intval($tax_term['parent']);
-								break;
-							}
-						}
-					}
-				} else {
-SyncDebug::log(__METHOD__ . '() no taxonomy lineage found for: ' . $tax_type);
-				}
-				$lineage = array_reverse($lineage);                // swap array order to start loop with top-most term first
-SyncDebug::log(__METHOD__ . '() taxonomy lineage: ' . var_export($lineage, TRUE));
-
-				// next, make sure each term in the hierarchy exists - we'll end on the taxonomy id that needs to be assigned
-SyncDebug::log(__METHOD__ . '() setting taxonomy terms for taxonomy "' . $tax_type . '"');
-				$generation = $parent = 0;
-				foreach ($lineage as $tax_term) {
-SyncDebug::log(__METHOD__ . '() checking term #' . $tax_term['term_id'] . ' ' . $tax_term['slug'] . ' parent=' . $tax_term['parent']);
-					$term = NULL;
-					if (0 === $parent) {
-SyncDebug::log(__METHOD__ . '() getting top level taxonomy ' . $tax_term['slug'] . ' in taxonomy ' . $tax_type);
-						$term = get_term_by('slug', $tax_term['slug'], $tax_type, OBJECT);
-						if (is_wp_error($term) || FALSE === $term) {
-SyncDebug::log(__METHOD__ . '() error=' . var_export($term, TRUE));
-							$term = NULL;                    // term not found, set to NULL so code below creates it
-						}
-SyncDebug::log(__METHOD__ . '() no parent but found term: ' . var_export($term, TRUE));
-					} else {
-						$child_terms = get_term_children($parent, $tax_type);
-SyncDebug::log(__METHOD__ . '() found ' . count($child_terms) . ' term children for #' . $parent);
-						if (!is_wp_error($child_terms)) {
-							// loop through the children until we find one that matches
-							foreach ($child_terms as $term_id) {
-								$term_child = get_term_by('id', $term_id, $tax_type);
-SyncDebug::log(__METHOD__ . '() term child: ' . $term_child->slug);
-								if ($term_child->slug === $tax_term['slug']) {
-									// found the child term
-									$term = $term_child;
-									break;
-								}
-							}
-						}
-					}
-
-					// see if the term needs to be created
-					if (NULL === $term) {
-						// term not found - create it
-						$args = array(
-							'description' => $tax_term['description'],
-							'slug' => $tax_term['slug'],
-							'taxonomy' => $tax_term['taxonomy'],
-							'parent' => $parent,                    // indicate parent for next loop iteration
-						);
-SyncDebug::log(__METHOD__ . '() term does not exist- adding name ' . $tax_term['name'] . ' under "' . $tax_type . '" args=' . var_export($args, TRUE));
-						$ret = wp_insert_term($tax_term['name'], $tax_type, $args);
-						if (is_wp_error($ret)) {
-							$term_id = 0;
-							$parent = 0;
-						} else {
-							$term_id = intval($ret['term_id']);
-							$parent = $term_id;            // set the parent to this term id so next loop iteraction looks for term's children
-						}
-SyncDebug::log(__METHOD__ . '() insert term [hier] result: ' . var_export($ret, TRUE));
-					} else {
-SyncDebug::log(__METHOD__ . '() found term: ' . var_export($term, TRUE));
-						if (isset($term->term_id)) {
-							$term_id = $term->term_id;
-							$parent = $term_id;                            // indicate parent for next loop iteration
-						} else {
-SyncDebug::log(__METHOD__ . '() ERROR: invalid term object');
-						}
-					}
-					++$generation;
-				}
-				// the loop exits with $term_id set to 0 (error) or the child-most term_id to be assigned to the object
-				if (0 !== $term_id) {
-SyncDebug::log(__METHOD__ . '() adding term #' . $term_id . ' to object ' . $post_id);
-					$ret = wp_add_object_terms($post_id, $term_id, $tax_type);
-SyncDebug::log(__METHOD__ . '() add [hier] object terms result: ' . var_export($ret, TRUE));
-				}
-			}
-		}
-
-		//
-		// remove any terms that exist for the post, but are not in the taxonmy data sent from Source
-		//
-		/**
-		 * $post - the post being updated; needed for wp_get_post_terms() call to look up taxonomies assigned to $post_id
-		 * $assigned_terms - the taxonomies that are assigned to the $post; used to check for items that may need to be removed
-		 * $post_term - foreach() iterator object for the $assigned_terms loop
-		 * $found - boolean used to track whether or not the $post_term was included in $taxonomies sent via API request. if FALSE, term needs to be removed
-		 */
-		// get the posts' list of assigned terms
-		$post = get_post($post_id, OBJECT);
-		$model = new SyncModel();
-		$assigned_terms = wp_get_post_terms($post_id, $model->get_all_tax_names($post->post_type));
-SyncDebug::log(__METHOD__ . '() looking for terms to remove');
-		foreach ($assigned_terms as $post_term) {
-SyncDebug::log(__METHOD__ . '() checking term #' . $post_term->term_id . ' "' . $post_term->slug . '" [' . $post_term->taxonomy . ']');
-			$found = FALSE;                            // assume $post_term is not found in $taxonomies data provided via API call
-SyncDebug::log(__METHOD__ . '() checking hierarchical terms');
-			if (isset($taxonomies['hierarchical']) && is_array($taxonomies['hierarchical'])) {
-				foreach ($taxonomies['hierarchical'] as $term) {
-					if ($term['slug'] === $post_term->slug && $term['taxonomy'] === $post_term->taxonomy) {
-SyncDebug::log(__METHOD__ . '() found post term in hierarchical list');
-						$found = TRUE;
-						break;
-					}
-				}
-			}
-			if (!$found) {
-				// not found in hierarchical taxonomies, look in flat taxonomies
-SyncDebug::log(__METHOD__ . '() checking flat terms');
-				if (isset($taxonomies['flat']) && is_array($taxonomies['flat'])) {
-					foreach ($taxonomies['flat'] as $term) {
-						if ($term['slug'] === $post_term->slug && $term['taxonomy'] === $post_term->taxonomy) {
-							SyncDebug::log(__METHOD__ . '() found post term in flat list');
-							$found = TRUE;
-							break;
-						}
-					}
-				}
-			}
-			// check to see if $post_term was included in $taxonomies data provided via the API call
-			if ($found) {
-SyncDebug::log(__METHOD__ . '() post term found in taxonomies list- not removing it');
-			} else {
-				// if the $post_term assigned to the post is NOT in the $taxonomies list, it needs to be removed
-SyncDebug::log(__METHOD__ . '() ** removing term #' . $post_term->term_id . ' ' . $post_term->slug . ' [' . $post_term->taxonomy . ']');
-				wp_remove_object_terms($post_id, intval($post_term->term_id), $post_term->taxonomy);
-			}
-		}
-	}
-
-	/**
 	 * Returns a post object for a given post title
 	 * @param string $title The post_title value to search for
 	 * @return WP_Post|NULL The WP_Post object if the title is found; otherwise NULL.
@@ -1035,14 +681,14 @@ SyncDebug::log('- post id=' . $post_id);
 	 *
 	 * @param int $post_id The target post id
 	 * @param array $attributes Product attributes
-	 * @param array $push_data Data sent by API
 	 */
-	private function _add_attributes($post_id, $attributes, $push_data)
+	private function _process_attributes($post_id, $attributes)
 	{
 		$attributes = maybe_unserialize(stripslashes($attributes));
 		$product_attributes_data = array();
+		$attribute_taxonomies = $this->post_raw('attribute_taxonomies', array());
 SyncDebug::log(__METHOD__ . '() attributes: ' . var_export($attributes, TRUE));
-SyncDebug::log(__METHOD__ . '() taxonomy attributes: ' . var_export($push_data['attribute_taxonomies'], TRUE));
+SyncDebug::log(__METHOD__ . '() taxonomy attributes: ' . var_export($attribute_taxonomies, TRUE));
 
 		foreach ($attributes as $attribute_key => $attribute) {
 
@@ -1056,9 +702,9 @@ SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 				$tax_array = array();
 
 				// get attribute taxonomy key from push_data
-				foreach ($push_data['attribute_taxonomies'] as $key => $tax) {
+				foreach ($attribute_taxonomies as $key => $tax) {
 					if ($tax['attribute_name'] === $attribute_name) {
-						$tax_array = $push_data['attribute_taxonomies'][$key];
+						$tax_array = $attribute_taxonomies[$key];
 					}
 				}
 
@@ -1093,8 +739,6 @@ SyncDebug::log(__METHOD__ . '() found attribute taxonomy: ' . var_export($att_ta
 				}
 
 SyncDebug::log(__METHOD__ . '() attribute taxonomy id: ' . var_export($id, TRUE));
-
-				$this->_register_taxonomy($attribute);
 			}
 
 			$product_attributes_data[$attribute_key] = array(
@@ -1217,9 +861,9 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	 * Register new taxonomy for new attributes
 	 *
 	 * @since 1.0.0
-	 * @param $attribute WooCommerce taxonomy attribute
+	 * @param string $attribute_name WooCommerce taxonomy attribute
 	 */
-	private function _register_taxonomy($attribute)
+	private function _register_taxonomy($attribute_name)
 	{
 		$permalinks = get_option('woocommerce_permalinks');
 
@@ -1229,7 +873,7 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 			'show_ui' => FALSE,
 			'query_var' => TRUE,
 			'rewrite' => array(
-				'slug' => empty($permalinks['attribute_base']) ? '' : trailingslashit($permalinks['attribute_base']) . sanitize_title($attribute['name']),
+				'slug' => empty($permalinks['attribute_base']) ? '' : trailingslashit($permalinks['attribute_base']) . sanitize_title($attribute_name),
 				'with_front' => FALSE,
 				'hierarchical' => TRUE
 			),
@@ -1244,7 +888,7 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 			)
 		);
 
-		register_taxonomy($attribute['name'], array('product'), $taxonomy_data );
+		register_taxonomy($attribute_name, array('product'), $taxonomy_data );
 	}
 
 	/**
@@ -1312,31 +956,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . 
 			$downloadable = (int)$_POST['downloadable'];
 
 		if (1 === $downloadable) {
-			if (0 === $target_post_id) {
-				$site_key = $this->_api_controller->source_site_key;
-				$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
-				$target_post_id = $sync_data->target_content_id;
-			}
-			$old_attach_id = $this->get_int('attach_id', 0);
-			if (0 === $old_attach_id)
-				$old_attach_id = abs($_POST['attach_id']);
-			$downloads = get_post_meta($target_post_id, '_downloadable_files', TRUE);
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' downloads=' . var_export($downloads, TRUE));
-			foreach ($downloads as $key => $download) {
-				if ($download['file'] === $_POST['img_url']) {
-					// get new attachment url
-					if (0 === $attach_id) {
-						$downloads[$key]['file'] = wp_get_attachment_url($media_id);
-					} else {
-						$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
-
-					}
-				}
-			}
-
-			// update post meta
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($target_post_id, '_downloadable_files', {$downloads})");
-			update_post_meta($target_post_id, '_downloadable_files', $downloads);
+			$this->_process_downloadable_files($target_post_id, $attach_id, $media_id);
 		}
 
 		// if the media was in a product image gallery, replace old id with new id or add to existing
@@ -1345,28 +965,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($target_post_i
 			$product_gallery = (int)$_POST['product_gallery'];
 
 		if (1 === $product_gallery) {
-			$old_attach_id = $this->get_int('attach_id', 0);
-			if (0 === $old_attach_id)
-				$old_attach_id = abs($_POST['attach_id']);
-			$gallery_ids = explode(',', get_post_meta($target_post_id, '_product_image_gallery', TRUE));
-
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' gallery_ids=' . var_export($gallery_ids, TRUE));
-			if (in_array($old_attach_id, $gallery_ids)) {
-				foreach ($gallery_ids as $key => $id) {
-					if ($old_attach_id == $id) {
-						if (0 === $attach_id) {
-							$gallery_ids[$key] = $media_id;
-						} else {
-							$gallery_ids[$key] = $attach_id;
-						}
-					}
-				}
-				$gallery_ids = implode(',', $gallery_ids);
-				update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
-			} else {
-				$gallery_ids = implode(',', array_push($gallery_ids, $attach_id));
-				update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
-			}
+			$this->_process_product_gallery_image($target_post_id, $attach_id, $media_id);
 			return;
 		}
 
@@ -1375,9 +974,10 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . '
 			$site_key = $this->_api_controller->source_site_key;
 			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
 			$new_variation_id = $sync_data->target_content_id;
-			if (NULL !== $sync_data && 0 !== $attach_id) {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$attach_id})");
-				update_post_meta($new_variation_id, '_thumbnail_id', $attach_id);
+SyncDebug::log(__METHOD__ . " processing variation image:" . __LINE__ . ' new id= ' . var_export($new_variation_id, TRUE));
+			if (NULL !== $sync_data && 0 !== $media_id) {
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$media_id})");
+				update_post_meta($new_variation_id, '_thumbnail_id', $media_id);
 			}
 		}
 	}
@@ -1407,7 +1007,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 	 * @param int $post_id The source site post id
 	 * @param array $meta_value The post meta value
 	 */
-	private function _process_product_gallery($post_id, $meta_value)
+	private function _get_product_gallery($post_id, $meta_value)
 	{
 		//$this->_api = WPSiteSync_WooCommerce::get_instance()->api;
 		$ids = explode(',', $meta_value[0]);
@@ -1429,7 +1029,7 @@ SyncDebug::log(__METHOD__ . '() adding product image id=' . var_export($image_id
 	 * @param int $post_id The source site post id
 	 * @param array $meta_value The post meta value
 	 */
-	private function _process_downloadable_files($post_id, $meta_value)
+	private function _get_downloadable_files($post_id, $meta_value)
 	{
 SyncDebug::log(__METHOD__ . '() found downloadable files data=' . var_export($meta_value, TRUE));
 		$files = maybe_unserialize($meta_value[0]);
@@ -1451,7 +1051,7 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 	 * @param string $action Pull or Push being processed
 	 * @return array $push_data
 	 */
-	private function _process_associated_products($associated_id, $type = 'wooproduct', $action = 'push')
+	private function _get_associated_products($associated_id, $type = 'wooproduct', $action = 'push')
 	{
 		$associated = array();
 		$this->_sync_model = new SyncModel();
@@ -1630,6 +1230,179 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' removing work file ' . $path . 
 
 			do_action('spectrom_sync_media_processed', $source_post_id, $attachment_id, $this->media_id);
 		}
+	}
+
+	/**
+	 * Process associated products
+	 *
+	 * @since 1.0.0
+	 * @param $target_ids
+	 * @param $meta_key
+	 * @param $meta_source_id
+	 * @param $new_meta_ids
+	 * @return array
+	 */
+	private function _process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids)
+	{
+		$new_id = NULL;
+		if (array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
+SyncDebug::log(' - found push target post #' . $target_ids[$meta_key][$meta_source_id]['target_id']);
+			$meta_post = get_post($target_ids[$meta_key][$meta_source_id]['target_id']);
+		}
+		// lookup source_id in sync table
+		if (NULL === $meta_post) {
+			$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'wooproduct');
+			if (NULL !== $sync_data) {
+SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
+				$new_id = $sync_data->target_content_id;
+			} else {
+				// if no match, check for matching title
+SyncDebug::log(' - still no product found - look up by title');
+				$meta_post = $this->_get_product_by_title($target_ids[$meta_key][$meta_source_id]['source_title']);
+				if (NULL !== $meta_post) {
+					$new_id = $meta_post->ID;
+				}
+			}
+		} else {
+			$new_id = $meta_post->ID;
+		}
+		if (NULL !== $new_id) {
+			$new_meta_ids[] = $new_id;
+		}
+		return $new_meta_ids;
+	}
+
+	/**
+	 * Process variation ids
+	 *
+	 * @since 1.0.0
+	 * @param $target_post_id
+	 * @param $meta_value
+	 * @param $source_id
+	 * @return int|null
+	 */
+	private function _process_variation_ids($meta_value, $source_id)
+	{
+SyncDebug::log(__METHOD__ . '() source id: ' . var_export($source_id, TRUE));
+SyncDebug::log(__METHOD__ . '() meta value: ' . var_export($meta_value, TRUE));
+		$new_id = NULL;
+		if (array_key_exists('target_id', $meta_value[$source_id])) {
+SyncDebug::log(' - found target post #' . $smeta_value[$source_id]['target_id']);
+			$meta_post = get_post($meta_value[$source_id]['target_id']);
+		}
+		// lookup source_id in sync table
+		if (NULL === $meta_post) {
+			$sync_data = $this->_sync_model->get_sync_data($source_id, $this->_api_controller->source_site_key, 'woovariableproduct');
+			if (NULL !== $sync_data) {
+SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
+				$new_id = $sync_data->target_content_id;
+				return $new_id;
+			} else {
+				// if no match, check for matching title
+SyncDebug::log(' - still no product found - look up by title');
+				$meta_post = $this->_get_product_by_title($meta_value[$source_id]['source_title']);
+				if (NULL !== $meta_post) {
+					$new_id = $meta_post->ID;
+					return $new_id;
+				}
+				return $new_id;
+			}
+		} else {
+			$new_id = $meta_post->ID;
+			return $new_id;
+		}
+	}
+
+	/**
+	 * Process product gallery
+	 *
+	 * @since 1.0.0
+	 * @param $target_post_id
+	 * @param $attach_id
+	 * @param $media_id
+	 * @return void
+	 */
+	private function _process_product_gallery_image($target_post_id, $attach_id, $media_id)
+	{
+		$old_attach_id = $this->get_int('attach_id', 0);
+		if (0 === $old_attach_id)
+			$old_attach_id = abs($_POST['attach_id']);
+		$gallery_ids = explode(',', get_post_meta($target_post_id, '_product_image_gallery', TRUE));
+
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' gallery_ids=' . var_export($gallery_ids, TRUE));
+		if (in_array($old_attach_id, $gallery_ids)) {
+			foreach ($gallery_ids as $key => $id) {
+				if ($old_attach_id == $id) {
+					if (0 === $attach_id) {
+						$gallery_ids[$key] = $media_id;
+					} else {
+						$gallery_ids[$key] = $attach_id;
+					}
+				}
+			}
+			$gallery_ids = implode(',', $gallery_ids);
+			update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
+		} else {
+			$gallery_ids = implode(',', array_push($gallery_ids, $attach_id));
+			update_post_meta($target_post_id, '_product_image_gallery', $gallery_ids);
+		}
+	}
+
+	/**
+	 * Check that everything is ready for us to process the Content Push operation on the Target
+	 * @param array $post_data The post data for the current Push
+	 * @param int $source_post_id The post ID on the Source
+	 * @param int $target_post_id The post ID on the Target
+	 * @param SyncApiResponse $response The API Response instance for the current API operation
+	 */
+	public function pre_push_content($post_data, $source_post_id, $target_post_id, $response)
+	{
+SyncDebug::log(__METHOD__ . "({$source_post_id}, {$target_post_id})");
+
+		$taxonomies = $this->post_raw('attribute_taxonomies', array());
+
+		foreach ($taxonomies as $taxonomy) {
+			if (! taxonomy_exists('pa_' . $taxonomy['attribute_name'])) {
+				$this->_register_taxonomy('pa_' . $taxonomy['attribute_name']);
+			}
+		}
+	}
+
+	/**
+	 * Process downloadable files
+	 *
+	 * @since 1.0.0
+	 * @param $target_post_id
+	 * @param $attach_id
+	 * @param $media_id
+	 */
+	private function _process_downloadable_files($target_post_id, $attach_id, $media_id)
+	{
+		if (0 === $target_post_id) {
+			$site_key = $this->_api_controller->source_site_key;
+			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
+			$target_post_id = $sync_data->target_content_id;
+		}
+		$old_attach_id = $this->get_int('attach_id', 0);
+		if (0 === $old_attach_id)
+			$old_attach_id = abs($_POST['attach_id']);
+		$downloads = get_post_meta($target_post_id, '_downloadable_files', TRUE);
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' downloads=' . var_export($downloads, TRUE));
+		foreach ($downloads as $key => $download) {
+			if ($download['file'] === $_POST['img_url']) {
+				// get new attachment url
+				if (0 === $attach_id) {
+					$downloads[$key]['file'] = wp_get_attachment_url($media_id);
+				} else {
+					$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
+
+				}
+			}
+		}
+
+		// update post meta
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($target_post_id, '_downloadable_files', {$downloads})");
+		update_post_meta($target_post_id, '_downloadable_files', $downloads);
 	}
 }
 

@@ -140,7 +140,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function (post_id)
 
     var data = {
         action: 'spectrom_sync',
-        operation: 'pullwoocommerce',
+        operation: 'pull',
         post_id: post_id,
         _sync_nonce: jQuery('#_sync_nonce').val()
     };
