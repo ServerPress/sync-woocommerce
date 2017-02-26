@@ -118,10 +118,13 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public function filter_push_content($data, $apirequest)
 	{
 		$post_id = 0;
+		$action = 'push';
 		if (isset($data['post_id']))                        // present on Push operations
 			$post_id = abs($data['post_id']);
-		else if (isset($data['post_data']['ID']))            // present on Pull operations
+		else if (isset($data['post_data']['ID'])) { // present on Pull operations
 			$post_id = abs($data['post_data']['ID']);
+			$action = 'pull';
+		}
 
 SyncDebug::log(__METHOD__ . '() filtering push content=' . var_export($data, TRUE));
 SyncDebug::log(__METHOD__ . '() for post id=' . var_export($post_id, TRUE));
@@ -185,7 +188,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				case '_crosssell_ids':
 					$ids = maybe_unserialize($meta_value[0]);
 					foreach ($ids as $associated_id) {
-						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id);
+						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'wooproduct', $action);
 					}
 					break;
 				case '_downloadable_files';
@@ -198,7 +201,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				case '_min_sale_price_variation_id':
 				case '_max_sale_price_variation_id':
 					$associated_id = $meta_value[0];
-					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct');
+					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct', $action);
 					break;
 				default:
 					break;
@@ -334,48 +337,6 @@ SyncDebug::log('adding variations');
 
 		// clear transients
 		WC_Post_Data::delete_product_query_transients();
-	}
-
-	/**
-	 * Performs post processing of the API response. Used as a chance to call the SyncApiController() and simulate a 'push' operation
-	 * @param string $action The API action being performed
-	 * @param int $post_id The post id that the action is performed on
-	 * @param array $data The data returned from the API request
-	 * @param SyncApiResponse $response The response object
-	 * @todo remove? is variation saved to sync table? change to push?
-	 */
-	public function api_success($action, $post_id, $data, $response)
-	{
-SyncDebug::log(__METHOD__ . "('{$action}', {$post_id}, ...)");
-
-		if ('pushwoocommerce' === $action) {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - data: ' . var_export($data, TRUE));
-			$sync_data = array(
-				'site_key' => SyncOptions::get('site_key'), //$response->response->data->site_key,
-				'source_content_id' => abs($data['post_id']),
-				'target_content_id' => $response->response->data->post_id,
-				'target_site_key' => SyncOptions::get('target_site_key'),
-				'content_type' => 'wooproduct',
-			);
-
-			$model = new SyncModel();
-			$model->save_sync_data($sync_data);
-
-			// Save variations to sync table if the product type is variable
-			if ('variable' === $response->response->data->product_type) {
-SyncDebug::log(__METHOD__ . '(): variable product');
-				foreach ($response->response->data->variations as $variation) {
-					$variation_data = array(
-						'site_key' => SyncOptions::get('site_key'), //$response->response->data->site_key,
-						'source_content_id' => $variation->source_id,
-						'target_content_id' => $variation->target_id,
-						'target_site_key' => SyncOptions::get('target_site_key'),
-						'content_type' => 'woovariableproduct',
-					);
-					$model->save_sync_data($variation_data);
-				}
-			}
-		}
 	}
 
 	/**
@@ -689,24 +650,59 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
  */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
-		// @todo not returning same $_POST on pull - main product post, with media in pull_media
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
+		$action = $this->post('operation', 'push');
+		$pull_media = $this->post_raw('pull_media', array());
+		$post_meta = $this->post_raw('post_meta', array());
+SyncDebug::log(__METHOD__ . " pull_media:" . __LINE__ . var_export($pull_media, TRUE));
 
 		// if a downloadable product, replace the url with new URL
 		$downloadable = $this->get_int('downloadable', 0);
 		if (0 === $downloadable && isset($_POST['downloadable']))
 			$downloadable = (int)$_POST['downloadable'];
 
+		if (0 === $downloadable && 'pull' === $action && !empty($pull_media)) {
+			$downloadables = maybe_unserialize($post_meta['_downloadable_files'][0]);
+SyncDebug::log(__METHOD__ . " downloadables:" . __LINE__ . var_export($downloadables, TRUE));
+			if (NULL !== $downloadables && !empty($downloadables)) {
+				foreach ($pull_media as $key => $media) {
+					if (array_key_exists('downloadable', $media) && 1 === $media['downloadable']) {
+						$url = $media['img_url'];
+						foreach ($downloadables as $download) {
+							if ($url === $download['file']) {
+								$downloadable = 1;
+							}
+						}
+					}
+				}
+			}
+		}
+
 		if (1 === $downloadable) {
 			$this->_process_downloadable_files($target_post_id, $attach_id, $media_id);
+			return;
 		}
 
 		// if the media was in a product image gallery, replace old id with new id or add to existing
 		$product_gallery = $this->get_int('product_gallery', 0);
 		if (0 === $product_gallery && isset($_POST['product_gallery']))
 			$product_gallery = (int)$_POST['product_gallery'];
+
+		if (0 === $product_gallery && 'pull' === $action && ! empty($pull_media) ) {
+			$galleries = $post_meta['_product_image_gallery'];
+			if (NULL !== $galleries && ! empty($galleries)) {
+				foreach ($pull_media as $key => $media) {
+					if (array_key_exists('product_gallery', $media) && 1 === $media['product_gallery']) {
+						$old_attach_id = $media['attach_id'];
+						if (in_array($old_attach_id, $galleries)) {
+							$product_gallery = 1;
+						}
+					}
+				}
+			}
+		}
 
 		if (1 === $product_gallery) {
 			$this->_process_product_gallery_image($target_post_id, $attach_id, $media_id);
@@ -797,11 +793,12 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 	 */
 	private function _get_associated_products($associated_id, $type = 'wooproduct', $action = 'push')
 	{
+SyncDebug::log(__METHOD__ . '() associated id: ' . var_export($associated_id, TRUE));
 		$associated = array();
 		$this->_sync_model = new SyncModel();
 
 		if ('pull' === $action) {
-			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('site_key'), $type);
+			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'), $type);
 			if (NULL !== $sync_data) {
 				$associated['target_id'] = $sync_data->source_content_id;
 			}
@@ -976,11 +973,12 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' .
 		foreach ($downloads as $key => $download) {
 			if ($download['file'] === $_POST['img_url']) {
 				// get new attachment url
-				if (0 === $attach_id) {
-					$downloads[$key]['file'] = wp_get_attachment_url($media_id);
-				} else {
-					$downloads[$key]['file'] = wp_get_attachment_url($attach_id);
-
+				$downloads[$key]['file'] = wp_get_attachment_url($media_id);
+			} elseif (array_key_exists('pull_media', $_POST) && ! empty($_POST['pull_media'])) {
+				foreach ($_POST['pull_media'] as $media) {
+					if ($download['file'] === $media['img_url']) {
+						$downloads[$key]['file'] = wp_get_attachment_url($media_id);
+					}
 				}
 			}
 		}

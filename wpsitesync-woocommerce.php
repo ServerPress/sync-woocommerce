@@ -86,7 +86,6 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 			add_filter('spectrom_sync_push_content_type', array($api, 'change_content_type_product'));
 			add_filter('spectrom_sync_api_arguments', array($api, 'api_arguments'), 10, 2);
 			add_filter('spectrom_sync_tax_list', array($api, 'product_taxonomies'), 10, 1);
-			add_action('spectrom_sync_action_success', array($api, 'api_success'), 10, 4);
 			add_filter('spectrom_sync_allowed_post_types', array($api, 'allowed_post_types'));
 			add_action('spectrom_sync_media_processed', array($api, 'media_processed'), 10, 3);
 
