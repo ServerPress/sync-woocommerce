@@ -16,11 +16,9 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const NOTICE_PRODUCT_MODIFIED = 600;
 	const NOTICE_CANNOT_UPLOAD_WOOCOMMERCE = 604;
 
-	private $_post_id;
 	private $_api;
 	private $_sync_model;
 	private $_api_controller;
-	private $_push_controller;
 	public $media_id;
 	public $local_media_name;
 
@@ -150,11 +148,10 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
-			// @todo re-enable
 			// get transient of post ids
 			$ids = FALSE; // remove
-//			$current_user = wp_get_current_user();
-//			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+			$current_user = wp_get_current_user();
+			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
 
 			if (FALSE === $ids) {
 				$ids = $product->get_children();
@@ -168,12 +165,12 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				unset($ids[$key]);
 			}
 
-//			if (empty($ids)) {
-//				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
-//			} else {
-//SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
-//				set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
-//			}
+			if (empty($ids)) {
+				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+			} else {
+SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
+				set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
+			}
 		}
 
 		// process meta values
@@ -247,25 +244,25 @@ SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
 	public function handle_push($target_post_id, $post_data, $response)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id})");
-// @todo re-enable
-//		if ('product' !== $post_data['post_type']) {
-//			SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
-//			$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
-//			return;
-//		}
-//
-//		// Check if WooCommerce is installed and activated
-//		if (!is_plugin_active('woocommerce/woocommerce.php')) {
-//			$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
-//			return TRUE;
-//		}
-//
-//		// Check if WooCommerce versions match when strict mode is enabled
-//		$headers = apache_request_headers();
-//		if ((1 === (int)$headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
-//			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
-//			return TRUE;            // return, signaling that the API request was processed
-//		}
+
+		if ('product' !== $post_data['post_type']) {
+			SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
+			$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
+			return;
+		}
+
+		// Check if WooCommerce is installed and activated
+		if (!is_plugin_active('woocommerce/woocommerce.php')) {
+			$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
+			return TRUE;
+		}
+
+		// Check if WooCommerce versions match when strict mode is enabled
+		$headers = apache_request_headers();
+		if ((1 === (int)$headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
+			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
+			return TRUE;            // return, signaling that the API request was processed
+		}
 
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 2);
 

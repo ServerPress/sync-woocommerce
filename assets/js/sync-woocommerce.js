@@ -88,7 +88,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
         async: true, // false,
         data: data,
         url: ajaxurl,
-       // timeout: 20000,
+        timeout: 20000,
         success: function (response)
         {
 //console.log('in ajax success callback - response');
@@ -107,12 +107,12 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
         },
         error: function (response, textstatus, message)
         {
-            // if (textstatus === 'timeout') {
-            //     wpsitesynccontent.woocommerce.push_woocommerce(post_id);
-            // } else {
+            if (textstatus === 'timeout') {
+                wpsitesynccontent.woocommerce.push_woocommerce(post_id);
+            } else {
                 if ('undefined' !== typeof(response.error_message))
                     wpsitesynccontent.set_message('<span class="error">' + response.error_message + '</span>', false, true);
-            //}
+            }
         }
     });
 };
@@ -142,6 +142,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function (post_id)
         action: 'spectrom_sync',
         operation: 'pull',
         post_id: post_id,
+        timeout: 20000,
         _sync_nonce: jQuery('#_sync_nonce').val()
     };
 
@@ -163,7 +164,9 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function (post_id)
                     }
                 }
             } else {
-                if ('undefined' !== typeof(response.data.message))
+                if (textstatus === 'timeout') {
+                    wpsitesynccontent.woocommerce.push_woocommerce(post_id);
+                } elseif ('undefined' !== typeof(response.data.message))
                     wpsitesynccontent.set_message(response.data.message, false, true);
             }
         },
