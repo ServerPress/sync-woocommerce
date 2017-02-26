@@ -117,8 +117,14 @@ class SyncWooCommerceApiRequest extends SyncInput
 	 */
 	public function filter_push_content($data, $apirequest)
 	{
+		$post_id = 0;
+		if (isset($data['post_id']))                        // present on Push operations
+			$post_id = abs($data['post_id']);
+		else if (isset($data['post_data']['ID']))            // present on Pull operations
+			$post_id = abs($data['post_data']['ID']);
+
 SyncDebug::log(__METHOD__ . '() filtering push content=' . var_export($data, TRUE));
-SyncDebug::log(__METHOD__ . '() for post id=' . var_export($data['post_id'], TRUE));
+SyncDebug::log(__METHOD__ . '() for post id=' . var_export($post_id, TRUE));
 		$this->_sync_model = new SyncModel();
 		$this->_api = $apirequest;
 
@@ -127,13 +133,13 @@ SyncDebug::log(__METHOD__ . '() for post id=' . var_export($data['post_id'], TRU
 		$apirequest->set_source_domain($site_url);
 
 		// get target post id from synced data
-		if (NULL !== ($sync_data = $this->_sync_model->get_sync_target_post($data['post_id'], SyncOptions::get('target_site_key'), 'wooproduct'))) {
+		if (NULL !== ($sync_data = $this->_sync_model->get_sync_target_post($post_id, SyncOptions::get('target_site_key'), 'wooproduct'))) {
 			$data['target_post_id'] = $sync_data->target_content_id;
 SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($data['target_post_id'], TRUE));
 		}
 
 		// get product type
-		$product = wc_get_product($data['post_id']);
+		$product = wc_get_product($post_id);
 		$data['product_type'] = $product->get_type();
 
 		// if variable product, add variations
@@ -141,7 +147,7 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
-			// @todo renablle
+			// @todo re-enable
 			// get transient of post ids
 			$ids = FALSE; // remove
 //			$current_user = wp_get_current_user();
@@ -173,7 +179,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 			if (NULL !== $meta_value && !empty($meta_value)) {
 				switch ($meta_key) {
 				case '_product_image_gallery':
-					$this->_get_product_gallery($data['post_id'], $meta_value);
+					$this->_get_product_gallery($post_id, $meta_value);
 					break;
 				case '_upsell_ids':
 				case '_crosssell_ids':
@@ -183,7 +189,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 					}
 					break;
 				case '_downloadable_files';
-					$this->_get_downloadable_files($data['post_id'], $meta_value);
+					$this->_get_downloadable_files($post_id, $meta_value);
 					break;
 				case '_min_price_variation_id':
 				case '_max_price_variation_id':
@@ -210,8 +216,6 @@ SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 					if (FALSE !== $img) {
 						$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
-						// @todo change to sendmedia, apirequest
-						$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
 					}
 				}
 
@@ -232,32 +236,6 @@ SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
 	}
 
 	/**
-	 * Checks the API request if the action is to pull/push the product
-	 *
-	 * @param array $args The arguments array sent to SyncApiRequest::api()
-	 * @param string $action The API requested
-	 * @param array $remote_args Array of arguments sent to SyncRequestApi::api()
-	 * @return array The modified $args array, with any additional information added to it
-	 * @todo remove?
-	 */
-	public function api_request($args, $action, $remote_args)
-	{
-SyncDebug::log(__METHOD__ . '() action=' . $action);
-	 	//if ('pullwoocommerce' === $action) {
-//SyncDebug::log(__METHOD__ . '() args=' . var_export($args, TRUE));
-//
-////			if (NULL !== ($sync_data = $this->_sync_model->get_sync_data($this->post_int('post_id', 0), SyncOptions::get('site_key'), 'wooproduct'))) {
-////				$args['target_post_id'] = $sync_data->target_content_id;
-////			} elseif (NULL !== ($sync_data = $this->_sync_model->get_sync_data($this->post_int('post_id', 0), SyncOptions::get('site_key'), 'woovariableproduct'))) {
-////				$args['target_post_id'] = $sync_data->target_content_id;
-////			}
-//		}
-
-		// return the filter value
-		return $args;
-	}
-
-	/**
 	 * Handles fixup of data on the Target after SyncApiController has finished processing Content.
 	 * @param int $target_post_id The post ID being created/updated via API call
 	 * @param array $post_data Post data sent via API call
@@ -266,6 +244,25 @@ SyncDebug::log(__METHOD__ . '() action=' . $action);
 	public function handle_push($target_post_id, $post_data, $response)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id})");
+// @todo re-enable
+//		if ('product' !== $post_data['post_type']) {
+//			SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
+//			$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
+//			return;
+//		}
+//
+//		// Check if WooCommerce is installed and activated
+//		if (!is_plugin_active('woocommerce/woocommerce.php')) {
+//			$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
+//			return TRUE;
+//		}
+//
+//		// Check if WooCommerce versions match when strict mode is enabled
+//		$headers = apache_request_headers();
+//		if ((1 === (int)$headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
+//			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
+//			return TRUE;            // return, signaling that the API request was processed
+//		}
 
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 2);
 
@@ -340,266 +337,12 @@ SyncDebug::log('adding variations');
 	}
 
 	/**
-	 * Handles the requests being processed on the Target from SyncApiController
-	 *
-	 * @param array $return Value to return
-	 * @param string $action The API requested
-	 * @param SyncApiResponse $response The SyncApiResponse object from a previous API request
-	 * @return bool $response The SyncApiResponse object
-	 * // @todo change action to push, check if woocommerce item, return error codes still
-	 */
-	public function api_controller_request($return, $action, SyncApiResponse $response)
-	{
-SyncDebug::log(__METHOD__ . "() handling '{$action}' action");
-
-//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
-//			return TRUE;
-
-		if ('pushwoocommerce' === $action) {
-
-			if ('product' !== $post_data['post_type']) {
-				SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
-				$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
-				return;
-			}
-
-			// Check if WooCommerce is installed and activated
-			if (!is_plugin_active('woocommerce/woocommerce.php')) {
-				$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
-				return TRUE;
-			}
-
-			// Check if WooCommerce versions match when strict mode is enabled
-			$headers = apache_request_headers();
-			if ((1 === (int) $headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
-				$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
-				return TRUE;            // return, signaling that the API request was processed
-			}
-
-
-//			if ('product' !== $post_data['post_type']) {
-//SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
-//				$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
-//				return;
-//			}
-
-
-			// check post thumbnail
-			$thumbnail = $this->_api_controller->post('thumbnail', '');
-			if ('' === $thumbnail) {
-				// remove the thumbnail -- it's no longer attached on the Source
-				delete_post_thumbnail($target_post_id);
-			}
-
-
-			$return = TRUE; // tell the SyncApiController that the request was handled
-
-		} else if ('pullwoocommerce' === $action) {
-
-			$this->_sync_model = new SyncModel();
-
-			// process pull request
-			$post_id = $this->post_int('target_post_id', 0);
-SyncDebug::log(__METHOD__ . '() pull post id=' . var_export($post_id, TRUE));
-
-			$pull_data = array();
-			$this->_api = WPSiteSync_WooCommerce::get_instance()->api;
-SyncDebug::log(__METHOD__ . '() !!! going to filter push_data');
-			remove_filter('spectrom_sync_api_push_content', array(WPSiteSync_Pull::get_instance(), 'filter_push_data'), 1);
-SyncDebug::log(__METHOD__ . '() going to set pull data=' . var_export($pull_data, TRUE));
-			$pull_data = $this->_api->get_push_data($post_id, $pull_data);
-SyncDebug::log(__METHOD__ . '() have pull data=' . var_export($pull_data, TRUE));
-
-			// get product type
-			$product = wc_get_product($post_id);
-			$pull_data['product_type'] = $product->get_type();
-
-			// if a variable product, add variations
-			if ($product->is_type('variable')) {
-				foreach ($product->get_children() as $id) {
-SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
-					$pull_data['product_variations'][] = $this->_api->get_push_data($id, $pull_data);
-				}
-			}
-
-			$pull_data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
-
-			// send post parent and post title for groupings if listed in sync table
-			if (0 !== $pull_data['post_data']['post_parent']) {
-				$sync_parent_data = $this->_sync_model->get_sync_data($pull_data['post_data']['post_parent'], SyncOptions::get('site_key'), 'wooproduct');
-				if (NULL !== $sync_parent_data) {
-					$pull_data['grouping_parent'] = array('target_id' => $sync_parent_data->source_content_id);
-				}
-				$pull_data['grouping_parent']['source_title'] = get_the_title($pull_data['post_data']['post_parent']);
-			}
-
-			// process meta values
-			foreach ($pull_data['post_meta'] as $meta_key => $meta_value) {
-
-				if (NULL !== $meta_value && !empty($meta_value)) {
-					switch ($meta_key) {
-					case '_product_image_gallery':
-						$this->_get_product_gallery($post_id, $meta_value);
-						break;
-					case '_upsell_ids':
-					case '_crosssell_ids':
-						$ids = maybe_unserialize($meta_value[0]);
-						foreach ($ids as $associated_id) {
-							$pull_data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'wooproduct', 'pull');
-						}
-						break;
-					case '_downloadable_files';
-						$this->_get_downloadable_files($post_id, $meta_value);
-						break;
-					case '_min_price_variation_id':
-					case '_max_price_variation_id':
-					case '_min_regular_price_variation_id':
-					case '_max_regular_price_variation_id':
-					case '_min_sale_price_variation_id':
-					case '_max_sale_price_variation_id':
-						$associated_id = $meta_value[0];
-						$pull_data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct', 'pull');
-						break;
-					default:
-						break;
-					}
-				}
-			}
-
-			// check if any featured images or downloads in variations need to be added to queue
-			if (array_key_exists('product_variations', $pull_data)) {
-				foreach ($pull_data['product_variations'] as $var) {
-
-					// process variation featured image
-					if (0 != $var['thumbnail']) {
-						SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
-						$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
-						if (FALSE !== $img) {
-							$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
-							$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
-						}
-					}
-
-					foreach ($var['post_meta'] as $meta_key => $meta_value) {
-						// process downloadable files
-						if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
-							SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
-							$this->_get_downloadable_files($var['post_data']['ID'], $meta_value);
-						}
-					}
-				}
-			}
-SyncDebug::log(__METHOD__ . '() !!! going to filter push_data');
-			add_filter('spectrom_sync_api_push_content', array(WPSiteSync_Pull::get_instance(), 'filter_push_data'), 10, 2);
-
-			SyncDebug::log(__METHOD__ . '() pull_data=' . var_export($pull_data, TRUE));
-
-			$response->set('pull_data', $pull_data); // add all the post information to the ApiResponse object
-			$response->set('site_key', SyncOptions::get('site_key'));
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - response data=' . var_export($response, TRUE));
-
-			$return = TRUE; // tell the SyncApiController that the request was handled
-		}
-
-		return $return;
-	}
-
-	/**
-	 * Handles the request on the Source after API Requests are made and the response is ready to be interpreted
-	 *
-	 * @param string $action The API name, i.e. 'push' or 'pull'
-	 * @param array $remote_args The arguments sent to SyncApiRequest::api()
-	 * @param SyncApiResponse $response The response object after the API request has been made
-	 */
-	public function api_response($action, $remote_args, $response)
-	{
-SyncDebug::log(__METHOD__ . "('{$action}')");
-
-		if ('pushwoocommerce' === $action) {
-SyncDebug::log(__METHOD__ . '() response from API request: ' . var_export($response, TRUE));
-
-			$api_response = NULL;
-
-			if (isset($response->response)) {
-SyncDebug::log(__METHOD__ . '() decoding response: ' . var_export($response->response, TRUE));
-				$api_response = $response->response;
-			} else {
-SyncDebug::log(__METHOD__ . '() no response->response element');
-			}
-
-SyncDebug::log(__METHOD__ . '() api response body=' . var_export($api_response, TRUE));
-
-			if (0 === $response->get_error_code()) {
-				$response->success(TRUE);
-			}
-
-		} else if ('pullwoocommerce' === $action) {
-SyncDebug::log(__METHOD__ . '() response from API request: ' . var_export($response, TRUE));
-
-			$api_response = NULL;
-
-			if (isset($response->response)) {
-SyncDebug::log(__METHOD__ . '() decoding response: ' . var_export($response->response, TRUE));
-				$api_response = $response->response;
-			} else {
-SyncDebug::log(__METHOD__ . '() no response->response element');
-			}
-
-SyncDebug::log(__METHOD__ . '() api response body=' . var_export($api_response, TRUE));
-
-			if (NULL !== $api_response) {
-				$save_post = $_POST;
-
-				// convert the pull data into an array
-				$pull_data = json_decode(json_encode($api_response->data->pull_data), TRUE); // $response->response->data->pull_data;
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - pull data=' . var_export($pull_data, TRUE));
-				$site_key = $api_response->data->site_key; // $pull_data->site_key;
-				$target_url = SyncOptions::get('target');
-				$pull_data['site_key'] = $site_key;
-				$pull_data['pull'] = TRUE;
-
-				$_POST['post_id'] = $_REQUEST['post_id'];
-				//$_POST['post_id'] = abs($api_response->data->post_data->ID);
-				//$_POST['target_post_id'] = abs($_REQUEST['post_id']);    // used by SyncApiController->push() to identify target post
-				$_POST['push_data'] = $pull_data;
-				$_POST['action'] = 'pushwoocommerce';
-				$_POST['pull_media'] = $pull_data['pull_media'];
-SyncDebug::log(__METHOD__ . '() pull media: ' . var_export($_POST['pull_media'], TRUE));
-
-				$args = array(
-					'action' => 'pushwoocommerce',
-					'parent_action' => 'pullwoocommerce',
-					'site_key' => $site_key,
-					'source' => $target_url,
-					'response' => $response,
-					'auth' => 0,
-				);
-
-SyncDebug::log(__METHOD__ . '() creating controller with: ' . var_export($args, TRUE));
-				$this->_push_controller = new SyncApiController($args);
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - returned from controller');
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' - response=' . var_export($response, TRUE));
-
-				if (isset($_POST['pull_media'])) {
-SyncDebug::log(__METHOD__ . '() - found ' . count($_POST['pull_media']) . ' media items');
-					$this->_handle_media(intval($_POST['post_id']), $_POST['pull_media'], $response);
-				}
-
-				$_POST = $save_post;
-
-				if (0 === $response->get_error_code()) {
-					$response->success(TRUE);
-				}
-			}
-		}
-	}
-
-	/**
 	 * Performs post processing of the API response. Used as a chance to call the SyncApiController() and simulate a 'push' operation
 	 * @param string $action The API action being performed
 	 * @param int $post_id The post id that the action is performed on
 	 * @param array $data The data returned from the API request
 	 * @param SyncApiResponse $response The response object
+	 * @todo remove? is variation saved to sync table? change to push?
 	 */
 	public function api_success($action, $post_id, $data, $response)
 	{
@@ -946,6 +689,7 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
  */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
+		// @todo not returning same $_POST on pull - main product post, with media in pull_media
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
@@ -1071,165 +815,6 @@ SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 		$associated['source_title'] = get_the_title($associated_id);
 
 		return $associated;
-	}
-
-	/**
-	 * Handle media file transfers during 'pull' operations
-	 * @param int $source_post_id The post ID on the Source
-	 * @param array $media_items The $_POST['pull_media'] data
-	 * @param SyncApiResponse $response The response instance
-	 * // @todo remove?
-	 */
-	private function _handle_media($source_post_id, $media_items, $response)
-	{
-		// adopted from SyncApiController::upload_media()
-
-		/*		The media data - built in SyncApiRequest->_upload_media()
-					'name' => 'value',
-					'post_id' => 219,
-					'featured' => 0,
-					'boundary' => 'zLR%keXstULAd!#89fmZIq2%',
-					'img_path' => '/path/to/wp/wp-content/uploads/2016/04',
-					'img_name' => 'image-name.jpg',
-					'img_url' => 'http://target.com/wp-content/uploads/2016/04/image-name.jpg',
-					'attach_id' => 277,
-					'attach_desc' => '',
-					'attach_title' => 'image-name',
-					'attach_caption' => '',
-					'attach_name' => 'image-name',
-					'attach_alt' => '',
-		 */
-		// check that user can upload files
-		if (!current_user_can('upload_files')) {
-			$response->notice_code(self::NOTICE_CANNOT_UPLOAD_WOOCOMMERCE);
-		}
-
-		require_once(ABSPATH . 'wp-admin/includes/image.php');
-		require_once(ABSPATH . 'wp-admin/includes/file.php');
-		require_once(ABSPATH . 'wp-admin/includes/media.php');
-
-		add_filter('wp_handle_upload', array(SyncApiController::get_instance(), 'handle_upload'));
-
-		// TODO: check uploaded file contents to ensure it's an image
-		// https://en.wikipedia.org/wiki/List_of_file_signatures
-
-		$upload_dir = wp_upload_dir();
-SyncDebug::log(__METHOD__ . '() upload dir=' . var_export($upload_dir, TRUE));
-		foreach ($media_items as $media_file) {
-			// check if this is the featured image
-			$featured = isset($media_file['featured']) ? intval($media_file['featured']) : 0;
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' featured=' . $featured);
-
-			// move remote file to local site
-			$path = $upload_dir['basedir'] . '/' . $media_file['img_name']; // tempnam(sys_get_temp_dir(), 'snc');
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' work file=' . $path . ' url=' . $media_file['img_url']);
-			file_put_contents($path, file_get_contents($media_file['img_url']));
-			$temp_name = tempnam(sys_get_temp_dir(), 'syn');
-SyncDebug::log(__METHOD__ . '() temp name=' . $temp_name);
-			copy($path, $temp_name);
-
-			// check file type
-			$img_type = wp_check_filetype($path);
-			$mime_type = $img_type['type'];
-			$basename = basename($media_file['img_name'], '.' . $img_type['ext']);
-SyncDebug::log(__METHOD__ . '() found image type=' . $img_type['ext'] . '=' . $img_type['type']);
-			if ((FALSE === strpos($mime_type, 'image/') && 'pdf' !== $img_type['ext']) ||
-			apply_filters('spectrom_sync_upload_media_allowed_mime_type', FALSE, $img_type)
-			) {
-				$response->error_code(SyncApiRequest::ERROR_INVALID_IMG_TYPE);
-				$response->send();
-			}
-
-			global $wpdb;
-			$sql = "SELECT `ID`
-						FROM `{$wpdb->posts}`
-						WHERE `post_name`=%s AND `post_type`='attachment'";
-			$res = $wpdb->get_col($wpdb->prepare($sql, $basename));
-			$attachment_id = 0;
-			if (0 != count($res))
-				$attachment_id = intval($res[0]);
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attach id=' . $attachment_id);
-
-			$target_post_id = intval($media_file['post_id']);
-
-			$this->media_id = 0;
-			$this->local_media_name = '';
-
-			// set this up for wp_handle_upload() calls
-			$overrides = array(
-				'test_form' => FALSE,            // really needed because we're not submitting via a form
-				'test_size' => FALSE,            // don't worry about the size
-				'unique_filename_callback' => array(SyncApiController::get_instance(), 'unique_filename_callback'),
-				'action' => 'wp_handle_sideload', // 'wp_handle_upload',
-			);
-
-			// check if attachment exists
-			if (0 !== $attachment_id) {
-				// if it's the featured image, set that
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' checking featured image - source=' . $source_post_id . ' attach=' . $attachment_id);
-				if ($featured && 0 !== $source_post_id)
-					set_post_thumbnail($source_post_id, $attachment_id);
-			} else {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found no image - adding to library');
-				$time = str_replace('\\', '/', substr($media_file['img_path'], -7));
-				$_POST['action'] = 'wp_handle_upload';        // shouldn't have to do this with $overrides['test_form'] = FALSE
-				$_POST['action'] = 'wp_handle_sideload';
-				// construct the $_FILES element
-				$file_info = array(
-					'name' => $media_file['img_name'],
-					'type' => $img_type['type'],
-					'tmp_name' => $temp_name,
-					'error' => 0,
-					'size' => filesize($path),
-				);
-				$_FILES['sync_file_upload'] = $file_info;
-SyncDebug::log(' files=' . var_export($_FILES, TRUE));
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' sending to wp_handle_upload(): ' . var_export($file_info, TRUE));
-				$file = wp_handle_upload($file_info, $overrides, $time);
-
-SyncDebug::log(__METHOD__ . '() returned: ' . var_export($file, TRUE));
-				if (!is_array($file) || isset($file['error'])) {
-
-					$has_error = TRUE;
-					$response->notice_code(SyncApiRequest::ERROR_FILE_UPLOAD, $ret->get_error_message());
-				} else {
-					$upload_file = $upload_dir['baseurl'] . '/' . $time . '/' . basename($file['file']);
-
-					$attachment = array(        // create attachment for our post
-						'post_title' => $media_file['attach_title'],
-						'post_name' => $media_file['attach_name'],
-						'post_content' => $media_file['attach_desc'],
-						'post_excerpt' => $media_file['attach_caption'],
-						'post_status' => 'inherit',
-						'post_mime_type' => $file['type'],    // type of attachment
-						'post_parent' => $source_post_id,    // post id
-						'guid' => $upload_file,
-					);
-SyncDebug::log(__METHOD__ . '() insert attachment parameters: ' . var_export($attachment, TRUE));
-					$attach_id = wp_insert_attachment($attachment, $file['file'], $source_post_id);    // insert post attachment
-SyncDebug::log(__METHOD__ . "() wp_insert_attachment([..., '{$file['file']}', {$source_post_id}) returned {$attach_id}");
-					$attach = wp_generate_attachment_metadata($attach_id, $file['file']);    // generate metadata for new attacment
-SyncDebug::log(__METHOD__ . "() wp_generate_attachment_metadata({$attach_id}, '{$file['file']}') returned " . var_export($attach, TRUE));
-					update_post_meta($attach_id, '_wp_attachment_image_alt', $media_file['attach_alt'], TRUE);
-					wp_update_attachment_metadata($attach_id, $attach);
-					$this->media_id = $attach_id;
-
-					// if it's the featured image, set that
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' featured=' . $featured . ' source=' . $source_post_id . ' attach=' . $attach_id);
-					if ($featured && 0 !== $source_post_id) {
-SyncDebug::log(__METHOD__ . "() set_post_thumbnail({$source_post_id}, {$attach_id})");
-						set_post_thumbnail($source_post_id, $attach_id);
-					}
-				}
-			}
-
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' removing work file ' . $path . ' and temp file ' . $temp_name);
-			unlink($path);
-			if (file_exists($temp_name))
-				unlink($temp_name);
-
-			do_action('spectrom_sync_media_processed', $source_post_id, $attachment_id, $this->media_id);
-		}
 	}
 
 	/**
