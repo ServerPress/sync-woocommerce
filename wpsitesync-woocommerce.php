@@ -25,13 +25,13 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
 		const PLUGIN_VERSION = '1.0';
-		const PLUGIN_KEY = '4151f50e546c7b0a53994d4c27f4cf31';
+		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
 		// TODO: this needs to be updated to 1.3.3 before releasing
 		const REQUIRED_VERSION = '1.3.2';									// minimum version of WPSiteSync required for this add-on to initialize
 
 		private function __construct()
 		{
-			add_action('spectrom_sync_init', array(&$this, 'init'));
+			add_action('spectrom_sync_init', array($this, 'init'));
 			if (is_admin())
 				add_action('wp_loaded', array($this, 'wp_loaded'));
 		}
@@ -58,10 +58,11 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		 */
 		public function init()
 		{
-			add_filter('spectrom_sync_active_extensions', array(&$this, 'filter_active_extensions'), 10, 2);
+			add_filter('spectrom_sync_active_extensions', array($this, 'filter_active_extensions'), 10, 2);
 
 //			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
 //				return;
+			// TODO: check if WooCommerce is activated and do not initialize. display admin notice to activate
 
 			// check for minimum WPSiteSync version
 			if (is_admin() && version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 && current_user_can('activate_plugins')) {
@@ -69,6 +70,9 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 				return;
 			}
 
+			// TODO: this and SyncWooCommerceApiRequest forces the loading of these classes on every page load.
+			// TODO: need to setup local method callback for several of these and when called, these can load additional classes and call those methods.
+			// TODO: see Beaver Builder add-on for examples (Note: this isn't critical but would be slightly more performant)
 			$this->api = new SyncApiRequest();
 
 			if (is_admin() && SyncOptions::is_auth()) {

@@ -12,7 +12,8 @@ class SyncWooCommerceAdmin
 
 	private function __construct()
 	{
-		add_action('admin_enqueue_scripts', array(&$this, 'admin_enqueue_scripts'));
+		add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
+		// TODO: add 'admin_footer' callback to display translatable text for javascript UI
 	}
 
 	/**

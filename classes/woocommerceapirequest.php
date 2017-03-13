@@ -1,7 +1,7 @@
 <?php
 
 /*
- * Allows management of WooCommerce Products between the Source and Target sites
+ * Allows syncing of WooCommerce Product data between the Source and Target sites
  * @package Sync
  * @author WPSiteSync
  */
@@ -14,6 +14,8 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const ERROR_WOOCOMMERCE_NOT_ACTIVATED = 603;
 
 	const NOTICE_PRODUCT_MODIFIED = 600;
+	// TODO: the error message mentions permissions for upload; need a better const name that reflects the actual error
+	// TODO: error/notice IDs need to be sequential
 	const NOTICE_CANNOT_UPLOAD_WOOCOMMERCE = 604;
 
 	private $_api;
@@ -78,6 +80,8 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public function api_arguments($remote_args, $action)
 	{
 		if ('pushwoocommerce' === $action || 'pullwoocommerce' === $action) {
+			// TODO: capitalization needs to be consistent. Always specify in mixed case but test for mixed case. (later on, you're checking for mixed case).
+			// TODO: this can be solved by using a constant. see SyncApiHeaders class for example
 			$remote_args['headers']['x-woo-commerce-version'] = WC()->version;
 			$remote_args['headers']['x-sync-strict'] = SyncOptions::get_int('strict', 0);
 		}
@@ -117,9 +121,9 @@ class SyncWooCommerceApiRequest extends SyncInput
 	{
 		$post_id = 0;
 		$action = 'push';
-		if (isset($data['post_id']))                        // present on Push operations
+		if (isset($data['post_id']))					// present on Push operations
 			$post_id = abs($data['post_id']);
-		else if (isset($data['post_data']['ID'])) { // present on Pull operations
+		else if (isset($data['post_data']['ID'])) {		// present on Pull operations
 			$post_id = abs($data['post_data']['ID']);
 			$action = 'pull';
 		}
@@ -145,12 +149,14 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 		// if variable product, add variations
 		if ($product->is_type('variable')) {
-
 			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
 			// get transient of post ids
 			$ids = FALSE; // remove
 			$current_user = wp_get_current_user();
+			// TODO: $args is not declared. Use $post_id??
+			// TODO: using a transient probably won't work. if user pushes, adds a variation, then pushes again in less than 1 hour, will this work?
+			// TODO: since this is only called on demand (a Push) it's okay to reload data because the user is asking for that to be done.
 			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
 
 			if (FALSE === $ids) {
@@ -159,6 +165,7 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
 
+			// TODO: use of & operator not needed and potentially dangerous- remove
 			foreach ($ids as $key => &$id) {
 SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				$data['product_variations'][] = $this->_api->get_push_data($id, $data);
@@ -166,6 +173,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 			}
 
 			if (empty($ids)) {
+				// TODO: we're removing the transient, but doing this force another transient check next time. instead should write empty array to data so the empty array is loaded from the transient next time.
 				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
 			} else {
 SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
@@ -175,12 +183,12 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 
 		// process meta values
 		foreach ($data['post_meta'] as $meta_key => $meta_value) {
-
 			if (NULL !== $meta_value && !empty($meta_value)) {
 				switch ($meta_key) {
 				case '_product_image_gallery':
 					$this->_get_product_gallery($post_id, $meta_value);
 					break;
+
 				case '_upsell_ids':
 				case '_crosssell_ids':
 					$ids = maybe_unserialize($meta_value[0]);
@@ -188,9 +196,11 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'wooproduct', $action);
 					}
 					break;
+
 				case '_downloadable_files';
 					$this->_get_downloadable_files($post_id, $meta_value);
 					break;
+
 				case '_min_price_variation_id':
 				case '_max_price_variation_id':
 				case '_min_regular_price_variation_id':
@@ -200,6 +210,8 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 					$associated_id = $meta_value[0];
 					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct', $action);
 					break;
+
+				// TODO: can remove since it's a no-op
 				default:
 					break;
 				}
@@ -209,12 +221,12 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 		// check if any featured images or downloads in variations need to be added to queue
 		if (array_key_exists('product_variations', $data)) {
 			foreach ($data['product_variations'] as $var) {
-
 				// process variation featured image
 				if (0 != $var['thumbnail']) {
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 					if (FALSE !== $img) {
+						// TODO: will this work if WP is configured for non-standard wp-content directory? Possibly use wp_upload_dir() instead
 						$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
 					}
 				}
@@ -245,6 +257,7 @@ SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id})");
 
+		// TODO: can this interfere with other add-ons or plugins that use 'product's? if so don't display error message, just return.
 		if ('product' !== $post_data['post_type']) {
 			SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
 			$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
@@ -252,6 +265,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 		}
 
 		// Check if WooCommerce is installed and activated
+		// TODO: do this check in init(), not during push and just fail silently so we don't interfere with other plugins/add-ons
 		if (!is_plugin_active('woocommerce/woocommerce.php')) {
 			$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
 			return TRUE;
@@ -259,12 +273,14 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 
 		// Check if WooCommerce versions match when strict mode is enabled
 		$headers = apache_request_headers();
+		// TODO: note that some systems force all lower case header values. Need to refactor SyncApiController->_get_header() to be public and use it to handle case significance.
+		// TODO: use constants for header values so case is preserved
 		if ((1 === (int)$headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
 			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
-			return TRUE;            // return, signaling that the API request was processed
+			return TRUE;			// return, signaling that the API request was processed
 		}
 
-		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(&$this, 'filter_allowed_mime_type'), 10, 2);
+		add_filter('spectrom_sync_upload_media_allowed_mime_type', array($this, 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($post_data, TRUE));
 
@@ -272,7 +288,7 @@ SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($pos
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
 
-		// set source domain
+		// set source domain- needed for handling media operations
 		$this->_api->set_source_domain($this->post_raw('source_domain', ''));
 SyncDebug::log(__METHOD__ . '() source domain: ' . var_export($this->post_raw('source_domain', ''), TRUE));
 
@@ -284,7 +300,6 @@ SyncDebug::log(__METHOD__ . '() source domain: ' . var_export($this->post_raw('s
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling meta data');
 
 		foreach ($post_meta as $meta_key => $meta_value) {
-
 			// loop through meta_value array
 			if ('_product_attributes' === $meta_key) {
 SyncDebug::log('   processing product attributes: ');
@@ -303,8 +318,9 @@ SyncDebug::log('   meta value ' . var_export($value, TRUE));
 						foreach ($value as $meta_source_id) {
 							$new_meta_ids = $this->_process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids);
 						}
-							update_post_meta($target_post_id, $meta_key, $new_meta_ids);
+						update_post_meta($target_post_id, $meta_key, $new_meta_ids);
 						break;
+
 					case '_min_price_variation_id':
 					case '_max_price_variation_id':
 					case '_min_regular_price_variation_id':
@@ -314,10 +330,12 @@ SyncDebug::log('   meta value ' . var_export($value, TRUE));
 						$values = $this->post_raw($meta_key, array());
 						$new_id = $this->_process_variation_ids($values, $value);
 SyncDebug::log('  updating post_meta for ' . var_export($meta_key, TRUE));
-SyncDebug::log('  updating post_meta with  ' . var_export($new_id, TRUE));
+SyncDebug::log('  updating post_meta with ' . var_export($new_id, TRUE));
 SyncDebug::log('  updating post_meta for target id ' . var_export($target_post_id, TRUE));
 						update_post_meta($target_post_id, $meta_key, $new_id);
 						break;
+
+					// TODO: can be removed since it's a no-op
 					default:
 						break;
 					}
@@ -359,6 +377,7 @@ SyncDebug::log('adding variations');
 	{
 		global $wpdb;
 
+		// TODO: is there a WC function to do this, rather than implementing/maintaining our own?
 		$sql = "SELECT `ID`
 				FROM `{$wpdb->posts}`
 				WHERE `post_title`=%s
@@ -392,7 +411,6 @@ SyncDebug::log(__METHOD__ . '() attributes: ' . var_export($attributes, TRUE));
 SyncDebug::log(__METHOD__ . '() taxonomy attributes: ' . var_export($attribute_taxonomies, TRUE));
 
 		foreach ($attributes as $attribute_key => $attribute) {
-
 SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 
 			// check if attribute is a taxonomy
@@ -410,6 +428,7 @@ SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 				}
 
 				// check if attribute taxonomy already exists
+				// TODO:  is there a WC function for this, rather than writing/maintaining our own?
 				$att_tax = $wpdb->get_row($wpdb->prepare("
 					SELECT *
 					FROM {$wpdb->prefix}woocommerce_attribute_taxonomies
@@ -438,7 +457,6 @@ SyncDebug::log(__METHOD__ . '() found attribute taxonomy: ' . var_export($att_ta
 				} else {
 					$id = $att_tax->id;
 				}
-
 SyncDebug::log(__METHOD__ . '() attribute taxonomy id: ' . var_export($id, TRUE));
 			}
 
@@ -531,7 +549,7 @@ SyncDebug::log(' adding variation meta value ' . var_export($value, TRUE));
 			$this->_sync_model->save_sync_data($save_sync);
 
 			$variation_ids[] = $variation_post_id;
-			$variation_data[] = array( 'target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
+			$variation_data[] = array('target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
 		}
 
 		// delete variations if not in current sync data
@@ -542,7 +560,7 @@ SyncDebug::log(' adding variation meta value ' . var_export($value, TRUE));
 			'post_parent' => $post_id,
 		);
 		$existing_variations = new WP_Query($args);
-		if ( $existing_variations->have_posts() ) {
+		if ($existing_variations->have_posts()) {
 			while ($existing_variations->have_posts()) {
 				$existing_variations->the_post();
 SyncDebug::log(' found existing variation ' . var_export(get_the_ID(), TRUE));
@@ -566,6 +584,7 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	 */
 	private function _register_taxonomy($attribute_name)
 	{
+		// TODO: aren't the WC taxonomies already registered?
 		$permalinks = get_option('woocommerce_permalinks');
 
 		$taxonomy_data = array(
@@ -589,7 +608,7 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 			)
 		);
 
-		register_taxonomy($attribute_name, array('product'), $taxonomy_data );
+		register_taxonomy($attribute_name, array('product'), $taxonomy_data);
 	}
 
 	/**
@@ -621,7 +640,7 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	 */
 	public function filter_upload_media_fields($fields)
 	{
-SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_export($fields, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' media fields= ' . var_export($fields, TRUE));
 		$fields['product_gallery'] = 1;
 		return $fields;
 	}
@@ -633,7 +652,7 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
 	 */
 	public function filter_downloadable_upload_media_fields($fields)
 	{
-SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_export($fields, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' media fields= ' . var_export($fields, TRUE));
 		$fields['downloadable'] = 1;
 		return $fields;
 	}
@@ -644,7 +663,7 @@ SyncDebug::log(__METHOD__ . " media fields:" . __LINE__ . ' fields= ' . var_expo
 	 * @param int $target_post_id The Post ID of the Content being pushed
 	 * @param int $attach_id The attachment's ID
 	 * @param int $media_id The media id
- */
+	 */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
@@ -653,7 +672,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . 
 		$action = $this->post('operation', 'push');
 		$pull_media = $this->post_raw('pull_media', array());
 		$post_meta = $this->post_raw('post_meta', array());
-SyncDebug::log(__METHOD__ . " pull_media:" . __LINE__ . var_export($pull_media, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' pull_media: ' . var_export($pull_media, TRUE));
 
 		// if a downloadable product, replace the url with new URL
 		$downloadable = $this->get_int('downloadable', 0);
@@ -662,7 +681,7 @@ SyncDebug::log(__METHOD__ . " pull_media:" . __LINE__ . var_export($pull_media, 
 
 		if (0 === $downloadable && 'pull' === $action && !empty($pull_media)) {
 			$downloadables = maybe_unserialize($post_meta['_downloadable_files'][0]);
-SyncDebug::log(__METHOD__ . " downloadables:" . __LINE__ . var_export($downloadables, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadables: ' . var_export($downloadables, TRUE));
 			if (NULL !== $downloadables && !empty($downloadables)) {
 				foreach ($pull_media as $key => $media) {
 					if (array_key_exists('downloadable', $media) && 1 === $media['downloadable']) {
@@ -685,9 +704,10 @@ SyncDebug::log(__METHOD__ . " downloadables:" . __LINE__ . var_export($downloada
 		// if the media was in a product image gallery, replace old id with new id or add to existing
 		$product_gallery = $this->get_int('product_gallery', 0);
 		if (0 === $product_gallery && isset($_POST['product_gallery']))
+			// TODO: use $this->post_int('product_gallery', 0)
 			$product_gallery = (int)$_POST['product_gallery'];
 
-		if (0 === $product_gallery && 'pull' === $action && ! empty($pull_media) ) {
+		if (0 === $product_gallery && 'pull' === $action && !empty($pull_media)) {
 			$galleries = $post_meta['_product_image_gallery'];
 			if (NULL !== $galleries && ! empty($galleries)) {
 				foreach ($pull_media as $key => $media) {
@@ -711,9 +731,9 @@ SyncDebug::log(__METHOD__ . " downloadables:" . __LINE__ . var_export($downloada
 			$site_key = $this->_api_controller->source_site_key;
 			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
 			$new_variation_id = $sync_data->target_content_id;
-SyncDebug::log(__METHOD__ . " processing variation image:" . __LINE__ . ' new id= ' . var_export($new_variation_id, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' processing variation image - new id= ' . var_export($new_variation_id, TRUE));
 			if (NULL !== $sync_data && 0 !== $media_id) {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation_id, '_thumbnail_id', {$media_id})");
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$new_variation_id}, '_thumbnail_id', {$media_id})");
 				update_post_meta($new_variation_id, '_thumbnail_id', $media_id);
 			}
 		}
@@ -752,9 +772,9 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($new_variation
 SyncDebug::log(__METHOD__ . '() adding product image id=' . var_export($image_id, TRUE));
 			$img = wp_get_attachment_image_src($image_id, 'full', FALSE);
 			if (FALSE !== $img) {
-				add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_upload_media_fields'), 10, 1);
+				add_filter('spectrom_sync_upload_media_fields', array($this, 'filter_upload_media_fields'), 10, 1);
 				$this->_api->send_media($img[0], $post_id, 0, $image_id);
-				remove_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_upload_media_fields'));
+				remove_filter('spectrom_sync_upload_media_fields', array($this, 'filter_upload_media_fields'));
 			}
 		}
 	}
@@ -773,9 +793,9 @@ SyncDebug::log(__METHOD__ . '() found downloadable files data=' . var_export($me
 		foreach ($files as $file_key => $file) {
 SyncDebug::log(__METHOD__ . '() file=' . var_export($file['file'], TRUE));
 			$file_id = attachment_url_to_postid($file['file']);
-			add_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'), 10, 1);
+			add_filter('spectrom_sync_upload_media_fields', array($this, 'filter_downloadable_upload_media_fields'), 10, 1);
 			$this->_api->send_media($file['file'], $post_id, 0, $file_id);
-			remove_filter('spectrom_sync_upload_media_fields', array(&$this, 'filter_downloadable_upload_media_fields'));
+			remove_filter('spectrom_sync_upload_media_fields', array($this, 'filter_downloadable_upload_media_fields'));
 		}
 	}
 
@@ -823,6 +843,7 @@ SyncDebug::log(__METHOD__ . '() associated id: ' . var_export($associated_id, TR
 	 */
 	private function _process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids)
 	{
+		// TODO: better name is $new_target_id
 		$new_id = NULL;
 		if (array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
 SyncDebug::log(' - found push target post #' . $target_ids[$meta_key][$meta_source_id]['target_id']);
@@ -903,9 +924,12 @@ SyncDebug::log(' - still no product found - look up by title');
 	 */
 	private function _process_product_gallery_image($target_post_id, $attach_id, $media_id)
 	{
+		// TODO: this is on a 'media_upload' action? Those are always HTTP POSTs which means you can just use $this->post_int('attach_id') - no need to check GET data
 		$old_attach_id = $this->get_int('attach_id', 0);
 		if (0 === $old_attach_id)
+			// TODO: use $this->post_int('attach_id', 0)
 			$old_attach_id = abs($_POST['attach_id']);
+		// TODO: check for empty data and ensure proper recovery if empty
 		$gallery_ids = explode(',', get_post_meta($target_post_id, '_product_image_gallery', TRUE));
 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' gallery_ids=' . var_export($gallery_ids, TRUE));
@@ -962,16 +986,18 @@ SyncDebug::log(__METHOD__ . "({$source_post_id}, {$target_post_id})");
 			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
 			$target_post_id = $sync_data->target_content_id;
 		}
+		// TODO: this is on an API 'push' request? If so, those are always HTTP POSTs. Don't need to check GET data.
 		$old_attach_id = $this->get_int('attach_id', 0);
 		if (0 === $old_attach_id)
 			$old_attach_id = abs($_POST['attach_id']);
+		// TODO: check for empty/non array returned from get_post_meta() and gracefully recover
 		$downloads = get_post_meta($target_post_id, '_downloadable_files', TRUE);
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' downloads=' . var_export($downloads, TRUE));
 		foreach ($downloads as $key => $download) {
 			if ($download['file'] === $_POST['img_url']) {
 				// get new attachment url
 				$downloads[$key]['file'] = wp_get_attachment_url($media_id);
-			} elseif (array_key_exists('pull_media', $_POST) && ! empty($_POST['pull_media'])) {
+			} else if (array_key_exists('pull_media', $_POST) && ! empty($_POST['pull_media'])) {
 				foreach ($_POST['pull_media'] as $media) {
 					if ($download['file'] === $media['img_url']) {
 						$downloads[$key]['file'] = wp_get_attachment_url($media_id);
@@ -981,7 +1007,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' .
 		}
 
 		// update post meta
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta($target_post_id, '_downloadable_files', {$downloads})");
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$target_post_id}, '_downloadable_files', {$downloads})");
 		update_post_meta($target_post_id, '_downloadable_files', $downloads);
 	}
 }
