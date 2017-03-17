@@ -16,6 +16,8 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const NOTICE_PRODUCT_MODIFIED = 600;
 	const NOTICE_WOOCOMMERCE_MEDIA_PERMISSION = 601;
 
+	const HEADER_WOOCOMMERCE_VERSION = 'x-woo-commerce-version'; // WooCommerce version number; used in requests and responses
+
 	private $_api;
 	private $_sync_model;
 	private $_api_controller;
@@ -78,10 +80,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public function api_arguments($remote_args, $action)
 	{
 		if ('pushwoocommerce' === $action || 'pullwoocommerce' === $action) {
-			// TODO: capitalization needs to be consistent. Always specify in mixed case but test for mixed case. (later on, you're checking for mixed case).
-			// TODO: this can be solved by using a constant. see SyncApiHeaders class for example
-			$remote_args['headers']['x-woo-commerce-version'] = WC()->version;
-			$remote_args['headers']['x-sync-strict'] = SyncOptions::get_int('strict', 0);
+			$remote_args['headers'][self::HEADER_WOOCOMMERCE_VERSION] = WC()->version;
 		}
 		return $remote_args;
 	}
@@ -258,10 +257,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 		}
 
 		// Check if WooCommerce versions match when strict mode is enabled
-		$headers = apache_request_headers();
-		// TODO: note that some systems force all lower case header values. Need to refactor SyncApiController->_get_header() to be public and use it to handle case significance.
-		// TODO: use constants for header values so case is preserved
-		if ((1 === (int)$headers['X-Sync-Strict'] || 1 === SyncOptions::get_int('strict', 0)) && $headers['X-Woo-Commerce-Version'] !== WC()->version) {
+		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(self::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
 			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
 			return TRUE;			// return, signaling that the API request was processed
 		}
