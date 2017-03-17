@@ -62,27 +62,22 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 {
 //console.log('PUSH' + settings);
 
-	// TODO: no need for comparison operator; just use if (wpsitesynccontent.woocommerce.disable)
-	if (true === wpsitesynccontent.woocommerce.disable) {
+	if (wpsitesynccontent.woocommerce.disable) {
 		wpsitesynccontent.set_message(jQuery('#sync-msg-update-changes').html());
 		return;
 	}
 
-	// Do nothing when in a disabled state
-	// TODO: .disable is checked above- not needed
-	if (this.disable || !this.inited)
+	if (!this.inited)
 		return;
 
-	// TODO: allow translations. add hidden <div> with translated text instead of javascript string
-	// TODO: example: wpsitesynccontent.set_message(jQuery('#sync-pull-msg').html());
-	wpsitesynccontent.set_message(jQuery('#sync-msg-working').text('Pushing Content to Target... Please Stay on This Page'), true);
+	wpsitesynccontent.set_message(jQuery('#sync-woo-push-working').html(), true);
 
 	this.post_id = post_id;
 
-	var data = {
+    //wpsitesynccontent.api('push', this.post_id, jQuery('#sync-woo-push-working').text(), jQuery('#sync-success-msg').text());
+
+    var data = {
 		action: 'spectrom_sync',
-		// TODO: can be removed
-		//operation: 'pushwoocommerce',
 		operation: 'push',
 		post_id: post_id,
 		_sync_nonce: jQuery('#_sync_nonce').val()
@@ -113,8 +108,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 		},
 		error: function(response, textstatus, message)
 		{
-			// TODO: use Yoda conditions
-			if (textstatus === 'timeout') {
+			if ('timeout' === textstatus) {
 				wpsitesynccontent.woocommerce.push_woocommerce(post_id);
 			} else {
 				if ('undefined' !== typeof(response.error_message))
@@ -130,21 +124,18 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
  */
 WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 {
-	// TODO: no need for comparison operator
-	if (true === wpsitesynccontent.woocommerce.disable) {
+	if (wpsitesynccontent.woocommerce.disable) {
 		wpsitesynccontent.set_message(jQuery('#sync-msg-update-changes').html());
 		return;
 	}
 
 	// Do nothing when in a disabled state
-	// TODO: .disable is checked above- not needed
-	if (this.disable || !this.inited)
+	if (!this.inited)
 		return;
 
 	jQuery('.pull-actions').hide();
 	jQuery('.pull-loading-indicator').show();
-	// TODO: allow translations. add hidden <div> with translated text instead of javascript string
-	wpsitesynccontent.set_message(jQuery('#sync-msg-pull-working').text('Pulling Content From Target... Please Stay on This Page'), true);
+	wpsitesynccontent.set_message(jQuery('#sync-woo-pull-working').html(), true);
 
 	this.post_id = post_id;
 
@@ -175,8 +166,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 					}
 				}
 			} else {
-				// TODO: use Yoda conditions
-				if (textstatus === 'timeout') {
+				if ('timeout' === textstatus) {
 					wpsitesynccontent.woocommerce.push_woocommerce(post_id);
 				} else if ('undefined' !== typeof(response.data.message))
 					wpsitesynccontent.set_message(response.data.message, false, true);
@@ -195,28 +185,9 @@ wpsitesynccontent.woocommerce = new WPSiteSyncContent_WooCommerce();
 // initialize the WPSiteSync operation on page load
 jQuery(document).ready(function ()
 {
-	var post_id = jQuery('#sync-content').attr('onclick');
 
 	wpsitesynccontent.woocommerce.init();
 
-	post_id = post_id.slice(23, -1);
-
-/**
-	TOOD:
-	Let's find another way that doesn't involve resetting the onclick= attribute.
-	something like setting a callback for the existing wpsitesynccontent.push() method to use instead of it's normal operation
-
 	wpsitesynccontent.set_push_callback(wpsitesynccontent.woocommerce.push_woocommerce);
-	wpsitesynccontent.set_pull_callback(wpsitesynccontent.woocommerce.pull_woocommerce);
-	if the callback returns true, it continues with normal push()/pull() behavior; if returns false does not continue with normal behavior
-*/
-	jQuery('#sync-content').attr('onclick', 'wpsitesynccontent.woocommerce.push_woocommerce(' + post_id + ')');
-
-	if (wpsitesynccontent.pull) {
-		jQuery('#sync-pull-content').attr('onclick', 'wpsitesynccontent.woocommerce.pull_woocommerce(' + post_id + ')');
-	} else {
-		// TODO: message should only display when Pull button is clicked. This is already handled by core+pull
-		wpsitesynccontent.set_message(jQuery('#sync-pull-msg').html());
-		jQuery('#sync-pull-content').blur();
-	}
+    //wpsitesynccontent.set_pull_callback(wpsitesynccontent.woocommerce.pull_woocommerce);
 });

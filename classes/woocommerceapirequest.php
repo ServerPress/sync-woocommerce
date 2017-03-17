@@ -294,6 +294,7 @@ SyncDebug::log(__METHOD__ . '() found attribute taxonomy: ' . var_export($att_ta
 						'attribute_orderby' => $tax_array['attribute_orderby'],
 						'attribute_public' => $tax_array['attribute_public'],
 					);
+					global $wpdb;
 
 					$insert = $wpdb->insert(
 						$wpdb->prefix . 'woocommerce_attribute_taxonomies',
