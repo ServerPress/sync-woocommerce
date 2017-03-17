@@ -156,10 +156,9 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 			// get transient of post ids
 			$ids = FALSE; // remove
 			$current_user = wp_get_current_user();
-			// TODO: $args is not declared. Use $post_id??
 			// TODO: using a transient probably won't work. if user pushes, adds a variation, then pushes again in less than 1 hour, will this work?
 			// TODO: since this is only called on demand (a Push) it's okay to reload data because the user is asking for that to be done.
-			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+			$ids = get_transient("spectrom_sync_woo_{$current_user->ID}_{$post_id}");
 
 			if (FALSE === $ids) {
 				$ids = $product->get_children();
@@ -167,8 +166,7 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 SyncDebug::log(__METHOD__ . '() remaining variation ids=' . var_export($ids, TRUE));
 
-			// TODO: use of & operator not needed and potentially dangerous- remove
-			foreach ($ids as $key => &$id) {
+			foreach ($ids as $key => $id) {
 SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 				$data['product_variations'][] = $this->_api->get_push_data($id, $data);
 				unset($ids[$key]);
@@ -224,8 +222,8 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 					if (FALSE !== $img) {
-						// TODO: will this work if WP is configured for non-standard wp-content directory? Possibly use wp_upload_dir() instead
 						$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
+						$this->_api->upload_media($var['post_data']['ID'], $path, NULL, TRUE, $var['thumbnail']);
 					}
 				}
 
@@ -685,8 +683,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadables: ' . var_export($
 		// if the media was in a product image gallery, replace old id with new id or add to existing
 		$product_gallery = $this->get_int('product_gallery', 0);
 		if (0 === $product_gallery && isset($_POST['product_gallery']))
-			// TODO: use $this->post_int('product_gallery', 0)
-			$product_gallery = (int)$_POST['product_gallery'];
+			$product_gallery = $this->post_int('product_gallery', 0);
 
 		if (0 === $product_gallery && 'pull' === $action && !empty($pull_media)) {
 			$galleries = $post_meta['_product_image_gallery'];
@@ -824,8 +821,7 @@ SyncDebug::log(__METHOD__ . '() associated id: ' . var_export($associated_id, TR
 	 */
 	private function _process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids)
 	{
-		// TODO: better name is $new_target_id
-		$new_id = NULL;
+		$new_target_id = NULL;
 		if (array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
 SyncDebug::log(' - found push target post #' . $target_ids[$meta_key][$meta_source_id]['target_id']);
 			$meta_post = get_post($target_ids[$meta_key][$meta_source_id]['target_id']);
@@ -835,20 +831,20 @@ SyncDebug::log(' - found push target post #' . $target_ids[$meta_key][$meta_sour
 			$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'wooproduct');
 			if (NULL !== $sync_data) {
 SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
-				$new_id = $sync_data->target_content_id;
+				$new_target_id = $sync_data->target_content_id;
 			} else {
 				// if no match, check for matching title
 SyncDebug::log(' - still no product found - look up by title');
 				$meta_post = $this->_get_product_by_title($target_ids[$meta_key][$meta_source_id]['source_title']);
 				if (NULL !== $meta_post) {
-					$new_id = $meta_post->ID;
+					$new_target_id = $meta_post->ID;
 				}
 			}
 		} else {
-			$new_id = $meta_post->ID;
+			$new_target_id = $meta_post->ID;
 		}
-		if (NULL !== $new_id) {
-			$new_meta_ids[] = $new_id;
+		if (NULL !== $new_target_id) {
+			$new_meta_ids[] = $new_target_id;
 		}
 		return $new_meta_ids;
 	}
@@ -905,13 +901,12 @@ SyncDebug::log(' - still no product found - look up by title');
 	 */
 	private function _process_product_gallery_image($target_post_id, $attach_id, $media_id)
 	{
-		// TODO: this is on a 'media_upload' action? Those are always HTTP POSTs which means you can just use $this->post_int('attach_id') - no need to check GET data
-		$old_attach_id = $this->get_int('attach_id', 0);
-		if (0 === $old_attach_id)
-			// TODO: use $this->post_int('attach_id', 0)
-			$old_attach_id = abs($_POST['attach_id']);
-		// TODO: check for empty data and ensure proper recovery if empty
+		$old_attach_id = $this->post_int('attach_id', 0);
 		$gallery_ids = explode(',', get_post_meta($target_post_id, '_product_image_gallery', TRUE));
+
+		if (empty($gallery_ids)) {
+			return;
+		}
 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' gallery_ids=' . var_export($gallery_ids, TRUE));
 		if (in_array($old_attach_id, $gallery_ids)) {
@@ -967,12 +962,14 @@ SyncDebug::log(__METHOD__ . "({$source_post_id}, {$target_post_id})");
 			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'woovariableproduct');
 			$target_post_id = $sync_data->target_content_id;
 		}
-		// TODO: this is on an API 'push' request? If so, those are always HTTP POSTs. Don't need to check GET data.
-		$old_attach_id = $this->get_int('attach_id', 0);
-		if (0 === $old_attach_id)
-			$old_attach_id = abs($_POST['attach_id']);
-		// TODO: check for empty/non array returned from get_post_meta() and gracefully recover
+
+		$old_attach_id = abs($_POST['attach_id']);
 		$downloads = get_post_meta($target_post_id, '_downloadable_files', TRUE);
+
+		if (empty($downloads) || ! is_array($downloads)) {
+			return;
+		}
+
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' . $target_post_id . ' old_attach_id=' . $old_attach_id . ' attach_id=' . $attach_id . ' downloads=' . var_export($downloads, TRUE));
 		foreach ($downloads as $key => $download) {
 			if ($download['file'] === $_POST['img_url']) {
