@@ -153,7 +153,6 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
 			// get transient of post ids
-			$ids = FALSE; // remove
 			$current_user = wp_get_current_user();
 			// TODO: using a transient probably won't work. if user pushes, adds a variation, then pushes again in less than 1 hour, will this work?
 			// TODO: since this is only called on demand (a Push) it's okay to reload data because the user is asking for that to be done.
@@ -172,11 +171,10 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 			}
 
 			if (empty($ids)) {
-				// TODO: we're removing the transient, but doing this force another transient check next time. instead should write empty array to data so the empty array is loaded from the transient next time.
-				delete_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}");
+				set_transient("spectrom_sync_woo_{$current_user->ID}_{$post_id}", array(), 60 * 60 * 1);
 			} else {
 SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids, TRUE));
-				set_transient("spectrom_sync_woo_{$current_user->ID}_{$args['post_id']}", $ids, 60 * 60 * 1);
+				set_transient("spectrom_sync_woo_{$current_user->ID}_{$post_id}", $ids, 60 * 60 * 1);
 			}
 		}
 
