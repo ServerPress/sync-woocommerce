@@ -264,13 +264,6 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 			return;
 		}
 
-		// Check if WooCommerce is installed and activated
-		// TODO: do this check in init(), not during push and just fail silently so we don't interfere with other plugins/add-ons
-		if (!is_plugin_active('woocommerce/woocommerce.php')) {
-			$response->error_code(self::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
-			return TRUE;
-		}
-
 		// Check if WooCommerce versions match when strict mode is enabled
 		$headers = apache_request_headers();
 		// TODO: note that some systems force all lower case header values. Need to refactor SyncApiController->_get_header() to be public and use it to handle case significance.

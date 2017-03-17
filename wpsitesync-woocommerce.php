@@ -62,7 +62,13 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 
 //			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
 //				return;
-			// TODO: check if WooCommerce is activated and do not initialize. display admin notice to activate
+
+			// Check if WooCommerce is installed and activated
+			include_once ABSPATH . 'wp-admin/includes/plugin.php';
+			if (is_admin() && is_plugin_inactive('woocommerce/woocommerce.php')) {
+				add_action('admin_notices', array($this, 'notice_woocommerce_inactive'));
+				return;
+			}
 
 			// check for minimum WPSiteSync version
 			if (is_admin() && version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 && current_user_can('activate_plugins')) {
@@ -161,6 +167,29 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 			$this->_show_notice(sprintf(__('WPSiteSync for WooCommerce requires version %1$s or greater of <em>WPSiteSync for Content</em> to be installed. Please <a href="2%s">click here</a> to update.', 'wpsitesync-woocommerce'),
 				self::REQUIRED_VERSION,
 				admin_url('plugins.php')), 'notice-warning');
+		}
+
+		/**
+		 * Display admin notice to activate WooCommerce plugin
+		 */
+		public function notice_woocommerce_inactive()
+		{
+			$this->_show_notice(sprintf(__('WPSiteSync for WooCommerce requires WooCommerce to be activated. Please <a href="%1$s">click here</a> to activate.', 'wpsitesync-woocommerce'),
+				admin_url('plugins.php')), 'notice-warning');
+		}
+
+		/**
+		 * Helper method to display notices
+		 * @param string $msg Message to display within notice
+		 * @param string $class The CSS class used on the <div> wrapping the notice
+		 * @param boolean $dismissable TRUE if message is to be dismissable; otherwise FALSE.
+		 */
+		private function _show_notice($msg, $class = 'notice-success', $dismissable = FALSE)
+		{
+			// TODO: refactor to use Sync Core function
+			echo '<div class="notice ', $class, ' ', ($dismissable ? 'is-dismissible' : ''), '">';
+			echo '<p>', $msg, '</p>';
+			echo '</div>';
 		}
 
 		/**
