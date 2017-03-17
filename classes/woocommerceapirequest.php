@@ -248,35 +248,6 @@ SyncDebug::log('adding variations');
 		WC_Post_Data::delete_product_query_transients();
 	}
 
-
-
-	/**
-	 * Returns a post object for a given post title
-	 * @param string $title The post_title value to search for
-	 * @return WP_Post|NULL The WP_Post object if the title is found; otherwise NULL.
-	 */
-	private function _get_product_by_title($title)
-	{
-		global $wpdb;
-
-		$sql = "SELECT `ID`
-				FROM `{$wpdb->posts}`
-				WHERE `post_title`=%s
-				AND (`post_type`='product' OR `post_type`='product_variation')
-				LIMIT 1";
-		$res = $wpdb->get_results($wpdb->prepare($sql, $title), OBJECT);
-SyncDebug::log(__METHOD__ . '() ' . $wpdb->last_query . ': ' . var_export($res, TRUE));
-
-		if (1 == count($res)) {
-			$post_id = $res[0]->ID;
-SyncDebug::log('- post id=' . $post_id);
-			$post = get_post($post_id, OBJECT);
-
-			return $post;
-		}
-		return NULL;
-	}
-
 	/**
 	 * Add attributes to product
 	 *
@@ -296,7 +267,8 @@ SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 
 			// check if attribute is a taxonomy
 			if (1 === $attribute['is_taxonomy']) {
-				global $wpdb;
+				WPSiteSync_WooCommerce::get_instance()->load_class('woocommercemodel');
+				$woo_model = new SyncWooCommerceModel();
 
 				$attribute_name = str_replace('pa_', '', $attribute['name']);
 				$tax_array = array();
@@ -309,11 +281,7 @@ SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 				}
 
 				// check if attribute taxonomy already exists
-				$att_tax = $wpdb->get_row($wpdb->prepare("
-					SELECT *
-					FROM {$wpdb->prefix}woocommerce_attribute_taxonomies
-					WHERE attribute_name = %s
-				 ", $attribute_name));
+				$att_tax = $woo_model->get_attribute_taxonomy($attribute_name);
 
 SyncDebug::log(__METHOD__ . '() found attribute taxonomy: ' . var_export($att_tax, TRUE));
 
@@ -706,7 +674,9 @@ SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
 			} else {
 				// if no match, check for matching title
 SyncDebug::log(' - still no product found - look up by title');
-				$meta_post = $this->_get_product_by_title($target_ids[$meta_key][$meta_source_id]['source_title']);
+				WPSiteSync_WooCommerce::get_instance()->load_class('woocommercemodel');
+				$woo_model = new SyncWooCommerceModel();
+				$meta_post = $woo_model->get_product_by_title($target_ids[$meta_key][$meta_source_id]['source_title']);
 				if (NULL !== $meta_post) {
 					$new_target_id = $meta_post->ID;
 				}
@@ -748,7 +718,9 @@ SyncDebug::log(' - found target post #' . $sync_data->target_content_id);
 			} else {
 				// if no match, check for matching title
 SyncDebug::log(' - still no product found - look up by title');
-				$meta_post = $this->_get_product_by_title($meta_value[$source_id]['source_title']);
+				WPSiteSync_WooCommerce::get_instance()->load_class('woocommercemodel');
+				$woo_model = new SyncWooCommerceModel();
+				$meta_post = $woo_model->get_product_by_title($meta_value[$source_id]['source_title']);
 				if (NULL !== $meta_post) {
 					$new_id = $meta_post->ID;
 					return $new_id;
