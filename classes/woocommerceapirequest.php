@@ -14,9 +14,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const ERROR_WOOCOMMERCE_NOT_ACTIVATED = 603;
 
 	const NOTICE_PRODUCT_MODIFIED = 600;
-	// TODO: the error message mentions permissions for upload; need a better const name that reflects the actual error
-	// TODO: error/notice IDs need to be sequential
-	const NOTICE_CANNOT_UPLOAD_WOOCOMMERCE = 604;
+	const NOTICE_WOOCOMMERCE_MEDIA_PERMISSION = 601;
 
 	private $_api;
 	private $_sync_model;
@@ -63,7 +61,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 		case self::NOTICE_PRODUCT_MODIFIED:
 			$message = __('WooCommerce Product has been modified on Target site since the last Push. Continue?', 'wpsitesync-woocommerce');
 			break;
-		case self::NOTICE_CANNOT_UPLOAD_WOOCOMMERCE:
+		case self::NOTICE_WOOCOMMERCE_MEDIA_PERMISSION:
 			$message = __('You do not have permission to upload media', 'wpsitesync-woocommerce');
 			break;
 		}
