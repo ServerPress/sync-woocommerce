@@ -126,6 +126,10 @@ class SyncWooCommerceApiRequest extends SyncInput
 			$action = 'pull';
 		}
 
+		if ('product' !== get_post_type($post_id)) {
+			return $data;
+		}
+
 SyncDebug::log(__METHOD__ . '() filtering push content=' . var_export($data, TRUE));
 SyncDebug::log(__METHOD__ . '() for post id=' . var_export($post_id, TRUE));
 		$this->_sync_model = new SyncModel();
@@ -208,10 +212,6 @@ SyncDebug::log(__METHOD__ . '() new remaining variation ids=' . var_export($ids,
 					$associated_id = $meta_value[0];
 					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'woovariableproduct', $action);
 					break;
-
-				// TODO: can remove since it's a no-op
-				default:
-					break;
 				}
 			}
 		}
@@ -255,10 +255,7 @@ SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id})");
 
-		// TODO: can this interfere with other add-ons or plugins that use 'product's? if so don't display error message, just return.
 		if ('product' !== $post_data['post_type']) {
-			SyncDebug::log(' - checking post type: ' . $post_data['post_type']);
-			$response->error_code(self::WOOCOMMERCE_INVALID_PRODUCT);
 			return;
 		}
 
@@ -325,10 +322,6 @@ SyncDebug::log('  updating post_meta with ' . var_export($new_id, TRUE));
 SyncDebug::log('  updating post_meta for target id ' . var_export($target_post_id, TRUE));
 						update_post_meta($target_post_id, $meta_key, $new_id);
 						break;
-
-					// TODO: can be removed since it's a no-op
-					default:
-						break;
 					}
 				}
 			}
@@ -368,7 +361,6 @@ SyncDebug::log('adding variations');
 	{
 		global $wpdb;
 
-		// TODO: is there a WC function to do this, rather than implementing/maintaining our own?
 		$sql = "SELECT `ID`
 				FROM `{$wpdb->posts}`
 				WHERE `post_title`=%s
@@ -419,7 +411,6 @@ SyncDebug::log(__METHOD__ . '() attribute: ' . var_export($attribute, TRUE));
 				}
 
 				// check if attribute taxonomy already exists
-				// TODO:  is there a WC function for this, rather than writing/maintaining our own?
 				$att_tax = $wpdb->get_row($wpdb->prepare("
 					SELECT *
 					FROM {$wpdb->prefix}woocommerce_attribute_taxonomies
@@ -575,7 +566,6 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	 */
 	private function _register_taxonomy($attribute_name)
 	{
-		// TODO: aren't the WC taxonomies already registered?
 		$permalinks = get_option('woocommerce_permalinks');
 
 		$taxonomy_data = array(
