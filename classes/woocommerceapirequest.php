@@ -24,89 +24,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public $media_id;
 	public $local_media_name;
 
-	/**
-	 * Filters the errors list, adding SyncWooCommerce specific code-to-string values
-	 *
-	 * @param string $message The error string message to be returned
-	 * @param int $code The error code being evaluated
-	 * @return string The modified $message string, with WooCommerce specific errors added to it
-	 */
-	public function filter_error_codes($message, $code)
-	{
-		switch ($code) {
-		case self::WOOCOMMERCE_INVALID_PRODUCT:
-			$message = __('Post ID is not a WooCommerce product', 'wpsitesync-woocommerce');
-			break;
-		case self::ERROR_NO_WOOCOMMERCE_PRODUCT_SELECTED:
-			$message = __('No WooCommerce product was selected', 'wpsitesync-woocommerce');
-			break;
-		case self::ERROR_WOOCOMMERCE_VERSION_MISMATCH:
-			$message = __('WooCommerce versions do not match', 'wpsitesync-woocommerce');
-			break;
-		case self::ERROR_WOOCOMMERCE_NOT_ACTIVATED:
-			$message = __('WooCommerce is not activated on Target site', 'wpsitesync-woocommerce');
-			break;
-		}
-		return $message;
-	}
 
-	/**
-	 * Filters the notices list, adding SyncWooCommerce specific code-to-string values
-	 *
-	 * @param string $message The notice string message to be returned
-	 * @param int $code The notice code being evaluated
-	 * @return string The modified $message string, with WooCommerce specific notices added to it
-	 */
-	public function filter_notice_codes($message, $code)
-	{
-		switch ($code) {
-		case self::NOTICE_PRODUCT_MODIFIED:
-			$message = __('WooCommerce Product has been modified on Target site since the last Push. Continue?', 'wpsitesync-woocommerce');
-			break;
-		case self::NOTICE_WOOCOMMERCE_MEDIA_PERMISSION:
-			$message = __('You do not have permission to upload media', 'wpsitesync-woocommerce');
-			break;
-		}
-		return $message;
-	}
-
-	/**
-	 * Adds arguments to api remote args
-	 *
-	 * @param array $remote_args Array of arguments sent to SyncRequestApi::api()
-	 * @param $action The API requested
-	 * @return array The returned remote arguments
-	 */
-	public function api_arguments($remote_args, $action)
-	{
-		if ('pushwoocommerce' === $action || 'pullwoocommerce' === $action) {
-			$remote_args['headers'][self::HEADER_WOOCOMMERCE_VERSION] = WC()->version;
-		}
-		return $remote_args;
-	}
-
-	/**
-	 * Adds product taxonomies to the list of available taxonomies for Syncing
-	 *
-	 * @param array $tax Array of taxonomy information to filter
-	 * @return array The taxonomy list, with product taxonomies added to it
-	 */
-	public function product_taxonomies($tax)
-	{
-		$att_taxonomies = array();
-		$product_taxonomies = array(
-			'product_cat' => get_taxonomy('product_cat'),
-			'product_tag' => get_taxonomy('product_tag'),
-			'product_type' => get_taxonomy('product_type'),
-			'product_shipping_class' => get_taxonomy('product_shipping_class'),
-		);
-		$attributes = wc_get_attribute_taxonomy_names();
-		foreach ($attributes as $attribute) {
-			$att_taxonomies[$attribute] = get_taxonomy($attribute);
-		}
-		$tax = array_merge($tax, $product_taxonomies, $att_taxonomies);
-		return $tax;
-	}
 
 	/**
 	 * Callback for filtering the post data before it's sent to the Target. Here we check for additional data needed.
@@ -264,7 +182,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 
 SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($post_data, TRUE));
 
-		$this->_api = WPSiteSync_WooCommerce::get_instance()->api;
+		$this->_api = new SyncApiRequest();
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
 
@@ -330,19 +248,7 @@ SyncDebug::log('adding variations');
 		WC_Post_Data::delete_product_query_transients();
 	}
 
-	/**
-	 * Add Product CPT to allowed post types
-	 *
-	 * @since 1.0.0
-	 * @param array $post_types Currently allowed post types
-	 * @return array The merged post types
-	 */
-	public function allowed_post_types($post_types)
-	{
-		$post_types[] = 'product';
-		$post_types[] = 'product_variation';
-		return $post_types;
-	}
+
 
 	/**
 	 * Returns a post object for a given post title
@@ -585,17 +491,6 @@ SyncDebug::log(' deleting variation id ' . var_export(get_the_ID(), TRUE));
 	}
 
 	/**
-	 * Change the content_type for get_sync_data and save_sync_data
-	 *
-	 * @since 1.0.0
-	 * @return string
-	 */
-	public function change_content_type_product()
-	{
-		return 'wooproduct';
-	}
-
-	/**
 	 * Change the content type for get_sync_data
 	 *
 	 * @since 1.0.0
@@ -711,23 +606,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$new_variatio
 		}
 	}
 
-	/**
-	 * Filter the allowed mime type in upload_media
-	 *
-	 * @since 1.0.0
-	 * @param $default
-	 * @param $img_type
-	 * @return string
-	 */
-	public function filter_allowed_mime_type($default, $img_type)
-	{
-		$allowed_file_types = apply_filters('woocommerce_downloadable_file_allowed_mime_types', get_allowed_mime_types());
-		if (in_array($img_type['type'], $allowed_file_types)) {
-			return TRUE;
-		}
-
-		return $default;
-	}
 
 	/**
 	 * Process Product Gallery Post Meta
@@ -738,7 +616,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$new_variatio
 	 */
 	private function _get_product_gallery($post_id, $meta_value)
 	{
-		//$this->_api = WPSiteSync_WooCommerce::get_instance()->api;
 		$ids = explode(',', $meta_value[0]);
 		foreach ($ids as $image_id) {
 SyncDebug::log(__METHOD__ . '() adding product image id=' . var_export($image_id, TRUE));
