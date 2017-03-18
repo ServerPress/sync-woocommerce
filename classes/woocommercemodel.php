@@ -8,7 +8,6 @@
 
 class SyncWooCommerceModel
 {
-
 	/**
 	 * Check for existing attribute taxonomy
 	 *
@@ -23,8 +22,8 @@ class SyncWooCommerceModel
 		// check if attribute taxonomy already exists
 		$taxonomy = $wpdb->get_row($wpdb->prepare("
 					SELECT *
-					FROM {$wpdb->prefix}woocommerce_attribute_taxonomies
-					WHERE attribute_name = %s
+					FROM `{$wpdb->prefix}woocommerce_attribute_taxonomies`
+					WHERE `attribute_name` = %s
 				 ", $attribute));
 
 		return $taxonomy;
@@ -47,9 +46,9 @@ class SyncWooCommerceModel
 		$res = $wpdb->get_results($wpdb->prepare($sql, $title), OBJECT);
 SyncDebug::log(__METHOD__ . '() ' . $wpdb->last_query . ': ' . var_export($res, TRUE));
 
-		if (1 == count($res)) {
+		if (1 === count($res)) {
 			$post_id = $res[0]->ID;
-			SyncDebug::log('- post id=' . $post_id);
+SyncDebug::log('- post id=' . $post_id);
 			$post = get_post($post_id, OBJECT);
 
 			return $post;
