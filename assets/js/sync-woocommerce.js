@@ -93,7 +93,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 		success: function(response)
 		{
 //console.log('in ajax success callback - response');
-			console.log(response);
+console.log(response);
 			if (response.success) {
 				wpsitesynccontent.set_message(jQuery('#sync-success-msg').text(), false, true);
 				if ('undefined' !== typeof(response.notice_codes) && response.notice_codes.length > 0) {
@@ -112,7 +112,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 				wpsitesynccontent.woocommerce.push_woocommerce(post_id);
 			} else {
 				if ('undefined' !== typeof(response.error_message))
-					wpsitesynccontent.set_message('<span class="error">' + response.error_message + '</span>', false, true);
+					wpsitesynccontent.set_message(response.error_message, false, true, 'sync-error');
 			}
 		}
 	});
@@ -156,7 +156,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 		success: function(response)
 		{
 //console.log('in ajax success callback - response');
-			console.log(response);
+console.log(response);
 			if (response.success) {
 				wpsitesynccontent.set_message(jQuery('#sync-msg-pull-complete').text());
 				window.location.reload();
@@ -175,7 +175,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 		error: function(response)
 		{
 			if ('undefined' !== typeof(response.error_message))
-				wpsitesynccontent.set_message('<span class="error">' + response.error_message + '</span>', false, true);
+				wpsitesynccontent.set_message(response.error_message, false, true, 'sync-error');
 		}
 	});
 };
@@ -185,7 +185,6 @@ wpsitesynccontent.woocommerce = new WPSiteSyncContent_WooCommerce();
 // initialize the WPSiteSync operation on page load
 jQuery(document).ready(function ()
 {
-
 	wpsitesynccontent.woocommerce.init();
 
 	wpsitesynccontent.set_push_callback(wpsitesynccontent.woocommerce.push_woocommerce);
