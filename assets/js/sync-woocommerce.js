@@ -60,7 +60,7 @@ WPSiteSyncContent_WooCommerce.prototype.on_content_change = function ()
  */
 WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 {
-//console.log('PUSH' + settings);
+console.log('PUSH' + post_id);
 
 	if (wpsitesynccontent.woocommerce.disable) {
 		wpsitesynccontent.set_message(jQuery('#sync-msg-update-changes').html());
@@ -73,9 +73,7 @@ WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
 	wpsitesynccontent.set_message(jQuery('#sync-woo-push-working').html(), true);
 
 	this.post_id = post_id;
-
-    //wpsitesynccontent.api('push', this.post_id, jQuery('#sync-woo-push-working').text(), jQuery('#sync-success-msg').text());
-
+	
     var data = {
 		action: 'spectrom_sync',
 		operation: 'push',
@@ -159,23 +157,25 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 console.log(response);
 			if (response.success) {
 				wpsitesynccontent.set_message(jQuery('#sync-msg-pull-complete').text());
-				window.location.reload();
 				if ('undefined' !== typeof(response.notice_codes) && response.notice_codes.length > 0) {
 					for (var idx = 0; idx < response.notice_codes.length; idx++) {
 						wpsitesynccontent.add_message(response.notices[idx]);
 					}
 				}
+                window.location.reload();
 			} else {
-				if ('timeout' === textstatus) {
-					wpsitesynccontent.woocommerce.push_woocommerce(post_id);
-				} else if ('undefined' !== typeof(response.data.message))
-					wpsitesynccontent.set_message(response.data.message, false, true);
-			}
+                if ('undefined' !== typeof(response.data.message))
+                    wpsitesynccontent.set_message(response.data.message, false, true);
+            }
 		},
-		error: function(response)
-		{
-			if ('undefined' !== typeof(response.error_message))
-				wpsitesynccontent.set_message(response.error_message, false, true, 'sync-error');
+        error: function (response, textstatus, message)
+        {
+            if ('timeout' === textstatus) {
+                wpsitesynccontent.woocommerce.pull_woocommerce(post_id);
+            } else {
+                if ('undefined' !== typeof(response.error_message))
+                    wpsitesynccontent.set_message(response.error_message, false, true, 'sync-error');
+            }
 		}
 	});
 };
@@ -188,5 +188,5 @@ jQuery(document).ready(function ()
 	wpsitesynccontent.woocommerce.init();
 
 	wpsitesynccontent.set_push_callback(wpsitesynccontent.woocommerce.push_woocommerce);
-    //wpsitesynccontent.set_pull_callback(wpsitesynccontent.woocommerce.pull_woocommerce);
+    wpsitesynccontent.set_pull_callback(wpsitesynccontent.woocommerce.pull_woocommerce);
 });
