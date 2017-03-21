@@ -7,7 +7,6 @@
  */
 class SyncWooCommerceApiRequest extends SyncInput
 {
-
 	const ERROR_WOOCOMMERCE_INVALID_PRODUCT = 600;
 	const ERROR_NO_WOOCOMMERCE_PRODUCT_SELECTED = 601;
 	const ERROR_WOOCOMMERCE_VERSION_MISMATCH = 602;
@@ -160,7 +159,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 			return TRUE;			// return, signaling that the API request was processed
 		}
 
-		add_filter('spectrom_sync_upload_media_allowed_mime_type', array($this, 'filter_allowed_mime_type'), 10, 2);
+		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '() found post_data information: ' . var_export($post_data, TRUE));
 
