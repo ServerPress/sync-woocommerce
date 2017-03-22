@@ -23,7 +23,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public $media_id;
 	public $local_media_name;
 
-
+	private $_processing_variations = FALSE;
 
 	/**
 	 * Callback for filtering the post data before it's sent to the Target. Here we check for additional data needed.
@@ -33,6 +33,11 @@ class SyncWooCommerceApiRequest extends SyncInput
 	 */
 	public function filter_push_content($data, $apirequest)
 	{
+		if ($this->_processing_variations) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations...skipping');
+			return $data;
+		}
+
 		$post_id = 0;
 		$action = 'push';
 		if (isset($data['post_id']))					// present on Push operations
@@ -46,8 +51,8 @@ class SyncWooCommerceApiRequest extends SyncInput
 			return $data;
 		}
 
-SyncDebug::log(__METHOD__ . '() filtering push content=' . var_export($data, TRUE));
-SyncDebug::log(__METHOD__ . '() for post id=' . var_export($post_id, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' filtering push content=' . var_export($data, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' for post id=' . var_export($post_id, TRUE));
 		$this->_sync_model = new SyncModel();
 		$this->_api = $apirequest;
 
@@ -58,7 +63,7 @@ SyncDebug::log(__METHOD__ . '() for post id=' . var_export($post_id, TRUE));
 		// get target post id from synced data
 		if (NULL !== ($sync_data = $this->_sync_model->get_sync_target_post($post_id, SyncOptions::get('target_site_key'), 'wooproduct'))) {
 			$data['target_post_id'] = $sync_data->target_content_id;
-SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($data['target_post_id'], TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found product target post id=' . var_export($data['target_post_id'], TRUE));
 		}
 
 		// get product type
@@ -67,14 +72,17 @@ SyncDebug::log(__METHOD__ . '() found product target post id=' . var_export($dat
 
 		// if variable product, add variations
 		if ($product->is_type('variable')) {
-			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
+			$this->_processing_variations = TRUE;
+			// NOTE: filter is hooked to WPSiteSync_WooCommerce, not $this
+//			remove_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'));
 
 			$ids = $product->get_children();
 
 			foreach ($ids as $key => $id) {
-SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding variation id=' . var_export($id, TRUE));
 				$data['product_variations'][] = $this->_api->get_push_data($id, $data);
 			}
+			$this->_processing_variations = FALSE;
 		}
 
 		// process meta values
@@ -115,7 +123,7 @@ SyncDebug::log(__METHOD__ . '() adding variation id=' . var_export($id, TRUE));
 			foreach ($data['product_variations'] as $var) {
 				// process variation featured image
 				if (0 != $var['thumbnail']) {
-SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
 					if (FALSE !== $img) {
 						$path = str_replace(trailingslashit(site_url()), ABSPATH, $img[0]);
@@ -126,7 +134,7 @@ SyncDebug::log(__METHOD__ . '() variation has thumbnail id=' . var_export($var['
 				foreach ($var['post_meta'] as $meta_key => $meta_value) {
 					// process downloadable files
 					if ('_downloadable_files' === $meta_key && !empty($meta_value)) {
-SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_export($meta_value, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found variation downloadable files data=' . var_export($meta_value, TRUE));
 						$this->_get_downloadable_files($var['post_data']['ID'], $meta_value);
 					}
 				}
@@ -135,7 +143,7 @@ SyncDebug::log(__METHOD__ . '() found variation downloadable files data=' . var_
 
 		$data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
 
-SyncDebug::log(__METHOD__ . '() data=' . var_export($data, TRUE));
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' data=' . var_export($data, TRUE));
 		return $data;
 	}
 
@@ -686,6 +694,7 @@ SyncDebug::log(' - still no product found - look up by title');
 SyncDebug::log(__METHOD__ . '() source id: ' . var_export($source_id, TRUE));
 SyncDebug::log(__METHOD__ . '() meta value: ' . var_export($meta_value, TRUE));
 		$new_id = NULL;
+		$meta_post = NULL;
 		if (array_key_exists('target_id', $meta_value[$source_id])) {
 SyncDebug::log(' - found target post #' . $smeta_value[$source_id]['target_id']);
 			$meta_post = get_post($meta_value[$source_id]['target_id']);
