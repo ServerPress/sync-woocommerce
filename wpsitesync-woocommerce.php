@@ -92,8 +92,8 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 			add_filter('spectrom_sync_allowed_post_types', array($this, 'allowed_post_types'));
 			add_action('spectrom_sync_media_processed', array($this, 'media_processed'), 10, 3);
 
-			add_filter('spectrom_sync_error_code_to_text', array($this, 'filter_error_codes'), 10, 2);
-			add_filter('spectrom_sync_notice_code_to_text', array($this, 'filter_notice_codes'), 10, 2);
+			add_filter('spectrom_sync_error_code_to_text', array($this, 'filter_error_code'), 10, 2);
+			add_filter('spectrom_sync_notice_code_to_text', array($this, 'filter_notice_code'), 10, 2);
 		}
 
 		/**
@@ -240,7 +240,7 @@ SyncDebug::log(__METHOD__ . '() source id=' . $source_post_id);
 		{
 			$this->_get_api_request();
 			switch ($code) {
-			case SyncWooCommerceApiRequest::WOOCOMMERCE_INVALID_PRODUCT:
+			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_INVALID_PRODUCT:
 				$message = __('Post ID is not a WooCommerce product', 'wpsitesync-woocommerce');
 				break;
 			case SyncWooCommerceApiRequest::ERROR_NO_WOOCOMMERCE_PRODUCT_SELECTED:
@@ -251,6 +251,9 @@ SyncDebug::log(__METHOD__ . '() source id=' . $source_post_id);
 				break;
 			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_ACTIVATED:
 				$message = __('WooCommerce is not activated on Target site', 'wpsitesync-woocommerce');
+				break;
+			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_UNIT_MISMATCH:
+				$message = __('WooCommerce measurement units are not the same on both sites', 'wpsitesync-woocommerce');
 				break;
 			}
 			return $message;

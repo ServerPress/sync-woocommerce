@@ -11,6 +11,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 	const ERROR_NO_WOOCOMMERCE_PRODUCT_SELECTED = 601;
 	const ERROR_WOOCOMMERCE_VERSION_MISMATCH = 602;
 	const ERROR_WOOCOMMERCE_NOT_ACTIVATED = 603;
+	const ERROR_WOOCOMMERCE_UNIT_MISMATCH = 604;
 
 	const NOTICE_PRODUCT_MODIFIED = 600;
 	const NOTICE_WOOCOMMERCE_MEDIA_PERMISSION = 601;
@@ -143,6 +144,11 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found variation downloadable fi
 
 		$data['attribute_taxonomies'] = wc_get_attribute_taxonomies();
 
+		$data['woo_settings'] = array(
+			'weight_unit' => get_option('woocommerce_weight_unit', 'kg'),
+			'dimension_unit' => get_option('woocommerce_dimension_unit', 'cm'),
+		);
+
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' data=' . var_export($data, TRUE));
 		return $data;
 	}
@@ -165,6 +171,16 @@ SyncDebug::log(__METHOD__ . "({$target_post_id})");
 		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(self::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
 			$response->error_code(self::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
 			return TRUE;			// return, signaling that the API request was processed
+		}
+
+		// Check if WooCommerce dimension units match
+		$units = $this->post('woo_settings', array());
+		if (get_option('woocommerce_dimension_unit', 'cm') !== $units['dimension_unit'] || get_option('woocommerce_weight_unit', 'kg') !== $units['weight_unit']) {
+			SyncDebug::log(__METHOD__ . '() source weight: ' . var_export(get_option('woocommerce_dimension_unit', 'cm'), TRUE));
+			SyncDebug::log(__METHOD__ . '() target weight: ' . var_export($units['dimension_unit'], TRUE));
+
+			$response->error_code(self::ERROR_WOOCOMMERCE_UNIT_MISMATCH);
+			return TRUE;            // return, signaling that the API request was processed
 		}
 
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
