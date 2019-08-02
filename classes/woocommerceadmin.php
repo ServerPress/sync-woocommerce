@@ -41,7 +41,7 @@ class SyncWooCommerceAdmin
 	{
 		wp_register_script('sync-woocommerce', WPSiteSync_WooCommerce::get_asset('js/sync-woocommerce.js'), array('sync'), WPSiteSync_WooCommerce::PLUGIN_VERSION, TRUE);
 
-		if ('post.php' === $hook_suffix && 'product'=== get_current_screen()->post_type) {
+		if ('post.php' === $hook_suffix && 'product' === get_current_screen()->post_type) {
 			wp_enqueue_script('sync-woocommerce');
 		}
 	}
@@ -54,6 +54,8 @@ class SyncWooCommerceAdmin
 	 */
 	public function print_hidden_div()
 	{
+		// TODO: only output this when editing a Woo product
+		// TODO: use Sync callback for outputting admin content
 		echo '<div id="sync-woo-push-working" style="display:none">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
 		echo '<div id="sync-woo-pull-working" style="display:none">', esc_html__('Pulling Content From Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
 	}

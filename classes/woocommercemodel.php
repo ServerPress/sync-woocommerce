@@ -44,11 +44,11 @@ class SyncWooCommerceModel
 				AND (`post_type`='product' OR `post_type`='product_variation')
 				LIMIT 1";
 		$res = $wpdb->get_results($wpdb->prepare($sql, $title), OBJECT);
-SyncDebug::log(__METHOD__ . '() ' . $wpdb->last_query . ': ' . var_export($res, TRUE));
+SyncDebug::log(__METHOD__ . '()' . __LINE__ . ' ' . $wpdb->last_query . ': ' . var_export($res, TRUE));
 
 		if (1 === count($res)) {
 			$post_id = $res[0]->ID;
-SyncDebug::log('- post id=' . $post_id);
+SyncDebug::log(__METHOD__.'()' . __LINE__ . ' post id=' . $post_id);
 			$post = get_post($post_id, OBJECT);
 
 			return $post;

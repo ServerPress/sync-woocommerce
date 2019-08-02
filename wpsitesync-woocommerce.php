@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: WPSiteSync for WooCommerce
-Plugin URI: http://wpsitesync.com
+Plugin URI: https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
 Description: Extension for WPSiteSync for Content that provides the ability to Sync WooCommerce Products within the WordPress admin.
 Author: WPSiteSync
-Author URI: http://wpsitesync.com
-Version: 1.0
+Author URI: https://wpsitesync.com
+Version: 0.9.2
 Text Domain: wpsitesync-woocommerce
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
@@ -24,10 +24,9 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		private $_api_request = NULL;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
-		const PLUGIN_VERSION = '1.0';
+		const PLUGIN_VERSION = '0.9.2';
 		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
-		// TODO: this needs to be updated to 1.3.3 before releasing
-		const REQUIRED_VERSION = '1.3.2';									// minimum version of WPSiteSync required for this add-on to initialize
+		const REQUIRED_VERSION = '1.3.3';									// minimum version of WPSiteSync required for this add-on to initialize
 
 		private function __construct()
 		{
@@ -41,7 +40,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		 *
 		 * @since 1.0.0
 		 * @static
-		 * @return null|WPSiteSync_WooCommerce
+		 * @return WPSiteSync_WooCommerce
 		 */
 		public static function get_instance()
 		{
@@ -64,6 +63,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 //				return;
 
 			// Check if WooCommerce is installed and activated
+			// TODO: use class_exists('WooCommerce')
 			include_once ABSPATH . 'wp-admin/includes/plugin.php';
 			if (is_admin() && is_plugin_inactive('woocommerce/woocommerce.php')) {
 				add_action('admin_notices', array($this, 'notice_woocommerce_inactive'));
@@ -85,8 +85,8 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 			add_action('spectrom_sync_push_content', array($this, 'handle_push'), 10, 3);
 			add_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'), 10, 2);
 			add_filter('spectrom_sync_upload_media_allowed_mime_type', array($this, 'filter_allowed_mime_type'), 10, 2);
-			add_filter('spectrom_sync_upload_media_content_type', array($this, 'change_content_type_product'));
-			add_filter('spectrom_sync_push_content_type', array($this, 'change_content_type_product'));
+//			add_filter('spectrom_sync_upload_media_content_type', array($this, 'change_content_type_product')); #4
+//			add_filter('spectrom_sync_push_content_type', array($this, 'change_content_type_product'));
 			add_filter('spectrom_sync_api_arguments', array($this, 'api_arguments'), 10, 2);
 			add_filter('spectrom_sync_tax_list', array($this, 'product_taxonomies'), 10, 1);
 			add_filter('spectrom_sync_allowed_post_types', array($this, 'allowed_post_types'));
@@ -119,7 +119,7 @@ if (!class_exists('WPSiteSync_WooCommerce')) {
 		 */
 		public function pre_push_content($post_data, $source_post_id, $target_post_id, $response)
 		{
-SyncDebug::log(__METHOD__ . '() source id=' . $source_post_id);
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source id=' . $source_post_id);
 			$this->_get_api_request();
 			$this->_api_request->pre_push_content($post_data, $source_post_id, $target_post_id, $response);
 		}
@@ -168,12 +168,13 @@ SyncDebug::log(__METHOD__ . '() source id=' . $source_post_id);
 
 		/**
 		 * Change the content_type for get_sync_data and save_sync_data
-		 *
 		 * @since 1.0.0
 		 * @return string
 		 */
+		// TODO: remove- no need to change data type
 		public function change_content_type_product()
 		{
+			// TODO: is this needed? content type should always be 'post'
 			return 'wooproduct';
 		}
 
@@ -331,6 +332,7 @@ SyncDebug::log(__METHOD__ . '() source id=' . $source_post_id);
 		 */
 		public function wp_loaded()
 		{
+			// TODO: add check for WC installed
 			if (!class_exists('WPSiteSyncContent', FALSE) && current_user_can('activate_plugins')) {
 				if (is_admin())
 					add_action('admin_notices', array($this, 'notice_requires_wpss'));

@@ -1,8 +1,8 @@
 /*
- * @copyright Copyright (C) 2015 SpectrOMtech.com. - All Rights Reserved.
+ * @copyright Copyright (C) 2015-2019 SpectrOMtech.com. - All Rights Reserved.
  * @license GNU General Public License, version 2 (http://www.gnu.org/licenses/gpl-2.0.html)
- * @author SpectrOMtech.com <hello@SpectrOMtech.com>
- * @url https://www.wpsitesync.com/downloads/
+ * @author WPSiteSync <hello@wpsitesync.com>
+ * @url https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
  * The PHP code portions are distributed under the GPL license. If not otherwise stated, all images, manuals, cascading style sheets, and included JavaScript *are NOT GPL, and are released under the SpectrOMtech Proprietary Use License v1.0
  * More info at https://SpectrOMtech.com/products/
  */
@@ -46,7 +46,7 @@ WPSiteSyncContent_WooCommerce.prototype.init = function()
 /**
  * Disables Sync Button every time the content changes.
  */
-WPSiteSyncContent_WooCommerce.prototype.on_content_change = function ()
+WPSiteSyncContent_WooCommerce.prototype.on_content_change = function()
 {
 	this.disable = true;
 	jQuery('#sync-content').attr('disabled', true);
@@ -58,9 +58,10 @@ WPSiteSyncContent_WooCommerce.prototype.on_content_change = function ()
  * Push WooCommerce products from target site
  * @param {int} post_id The post id to perform Push operations on
  */
-WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function (post_id)
+WPSiteSyncContent_WooCommerce.prototype.push_woocommerce = function(post_id)
 {
 console.log('PUSH' + post_id);
+	// TODO: use .api() method
 
 	if (wpsitesynccontent.woocommerce.disable) {
 		wpsitesynccontent.set_message(jQuery('#sync-msg-update-changes').html());
@@ -127,7 +128,7 @@ WPSiteSyncContent_WooCommerce.prototype.pull_woocommerce = function(post_id)
 		return;
 	}
 
-	// Do nothing when in a disabled state
+	// do nothing when in a disabled state
 	if (!this.inited)
 		return;
 
@@ -168,7 +169,7 @@ console.log(response);
 					wpsitesynccontent.set_message(response.data.message, false, true);
 			}
 		},
-		error: function (response, textstatus, message)
+		error: function(response, textstatus, message)
 		{
 			if ('timeout' === textstatus) {
 				wpsitesynccontent.woocommerce.pull_woocommerce(post_id);
@@ -183,10 +184,13 @@ console.log(response);
 wpsitesynccontent.woocommerce = new WPSiteSyncContent_WooCommerce();
 
 // initialize the WPSiteSync operation on page load
-jQuery(document).ready(function ()
+jQuery(document).ready(function()
 {
 	wpsitesynccontent.woocommerce.init();
 
+	// TODO: these should only be initialized when editing products
 	wpsitesynccontent.set_push_callback(wpsitesynccontent.woocommerce.push_woocommerce);
 	wpsitesynccontent.set_pull_callback(wpsitesynccontent.woocommerce.pull_woocommerce);
 });
+
+// EOF
