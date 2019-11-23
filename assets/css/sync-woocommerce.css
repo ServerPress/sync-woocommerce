@@ -1,0 +1,17 @@
+#spectrom_sync .sync-woo-ui {
+	padding: 0 0 .5rem 0;
+}
+#spectrom_sync .sync-woo-ui .sync-woo-progress {
+	background-color: lightgray;
+	width: 100%;
+	border-radius: 10px;
+	height: 1.5rem;
+}
+#spectrom_sync .sync-woo-ui .sync-woo-progress .sync-woo-indicator {
+	text-align: center;
+	padding: 3px 0;
+	font-weight: bold;
+	color: white;
+	border-radius: 10px;
+	background-color: #0085ba;
+}

@@ -18,10 +18,7 @@ class SyncWooCommerceAdmin
 
 	/**
 	 * Retrieve singleton class instance
-	 *
-	 * @since 1.0.0
-	 * @static
-	 * @return null|SyncWooCommerceAdmin instance reference to plugin
+	 * @return null|SyncWooCommerceAdmin instance reference to Admin class
 	 */
 	public static function get_instance()
 	{
@@ -32,32 +29,50 @@ class SyncWooCommerceAdmin
 
 	/**
 	 * Registers js to be used.
-	 *
-	 * @since 1.0.0
 	 * @param $hook_suffix Admin page hook
-	 * @return void
 	 */
 	public function admin_enqueue_scripts($hook_suffix)
 	{
 		wp_register_script('sync-woocommerce', WPSiteSync_WooCommerce::get_asset('js/sync-woocommerce.js'), array('sync'), WPSiteSync_WooCommerce::PLUGIN_VERSION, TRUE);
+		wp_register_style('sync-woocommerce', WPSiteSync_WooCommerce::get_asset('css/sync-woocommerce.css'), array('sync-admin'), WPSiteSync_WooCommerce::PLUGIN_VERSION);
 
 		if ('post.php' === $hook_suffix && 'product' === get_current_screen()->post_type) {
 			wp_enqueue_script('sync-woocommerce');
+			wp_enqueue_style('sync-woocommerce');
 		}
 	}
 
 	/**
-	 * Print hidden div for translatable text
-	 *
-	 * @since 1.0.0
-	 * @return void
+	 * Print hidden div containing translatable text
 	 */
 	public function print_hidden_div()
 	{
 		// TODO: only output this when editing a Woo product
 		// TODO: use Sync callback for outputting admin content
-		echo '<div id="sync-woo-push-working" style="display:none">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
-		echo '<div id="sync-woo-pull-working" style="display:none">', esc_html__('Pulling Content From Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
+		echo '<div style="display:none">';
+		echo '<div id="sync-woo-push-working">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
+		echo '<div id="sync-woo-pull-working">', esc_html__('Pulling Content From Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
+		echo '<div id="sync-msg-update-changes">', esc_html__('Please save Content before Syncing', 'wpsitesync-woocommerce'), '</div>';
+		global $post;
+		$type = $post->post_type;
+		if ('product' === $post->post_type) {
+			$product = wc_get_product($post->ID);
+			$prod_type = $product->get_type();
+			$type .= '-' . $prod_type;
+		}
+		echo '<div id="sync-woo-product-type">', $type, '</div>';
+		echo '<div id="sync-woo-progress">
+			<div class="sync-woo-ui">
+				<div class="sync-woo-progress">
+					<div class="sync-woo-indicator" style="width:1%">
+						<span class="percent">1</span>%
+					</div>
+				</div>
+			</div>'; // #sync-woo-progress
+		echo '</div>'; // display:none
+//		echo '<style type="text/css">', PHP_EOL;
+//		echo '#spectrom_sync { border: 1px solid red; }', PHP_EOL;
+//		echo '</style>', PHP_EOL;
 	}
 }
 
