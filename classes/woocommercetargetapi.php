@@ -105,7 +105,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 #@#			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
-		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(self::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
+		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
 			$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
 			return TRUE;			// return, signaling that the API request was processed
 		}
