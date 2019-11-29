@@ -393,7 +393,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 				}
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found property "' . $prop_name . '" referencing ids ' . implode(',', $ref_ids));
 
-				switch ($gbentry->_prop_type) {
+				switch ($gbentry->prop_type) {
 				case self::PROPTYPE_IMAGE:
 					// get the thumbnail id if we haven't already
 					if (NULL === $this->_thumb_id)			// if the thumb id hasn't already been determined, get it here
