@@ -349,7 +349,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 
 		if (!empty($json) && NULL !== $obj) {
 			// this block has a JSON object embedded within it
-			$props = explode('|', SyncWooCommerceTargetApi::$gutenberg_props[$block_name]);
+			$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
 			foreach ($props as $property) {
 				// for each property listed in the $gutenberg_props array, look to see if it refers to an image ID

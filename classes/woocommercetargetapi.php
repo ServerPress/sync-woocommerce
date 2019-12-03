@@ -260,7 +260,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 					$this->_sync_model = new SyncModel();
 				}
 
-				$props = explode('|', SyncWooCommerceTargetApi::$gutenberg_props[$block_name]);
+				$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
 				foreach ($props as $property) {
 					// check for each property name found within the block's data
@@ -308,7 +308,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . ' updated: ' . $new_obj_data);
 				}
 			} // !empty($json)
-		} // in_array($block_name, SyncWooCommerceTargetApi::$gutenberg_props)
+		} // in_array($block_name, SyncWooCommerceApiRequest::$gutenberg_props)
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' returning');
 		return $content;
 	}
