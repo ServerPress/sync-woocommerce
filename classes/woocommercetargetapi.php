@@ -7,7 +7,14 @@ class SyncWooCommerceTargetApi extends SyncInput
 	private $_api_controller;												// reference to SyncApiController
 	private $_response = NULL;												// used to set response value
 
+	private $_block_names = NULL;											// array of block names (keys) from $gutenberg_props
+
 	const TIME_THRESHHOLD = 15000;											// process for 15 seconds at a time
+
+	public function __construct()
+	{
+		$this->_block_names = array_keys(SyncWooCommerceApiRequest::$gutenberg_props);
+	}
 
 	/**
 	 * Check that everything is ready for us to process the Content Push operation on the Target
@@ -243,12 +250,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 		// look for known block names
 		if (in_array($block_name, $this->_block_names)) {
 			// check to see if it's one of the form block names; skip those
-			switch ($block_name) {
-			case 'wp:uagb/cf7-styler':
-			case 'wp:uagb/gf-styler':
-				// simply return the content. this allows product specific add-ons to update Gutenberg content appropriately
-				return $content;
-			}
 
 			$obj = json_decode($json);
 			if (!empty($json) && NULL !== $obj) {
@@ -259,7 +260,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 					$this->_sync_model = new SyncModel();
 				}
 
-				$props = explode('|', $this->_props[$block_name]);
+				$props = explode('|', SyncWooCommerceTargetApi::$gutenberg_props[$block_name]);
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
 				foreach ($props as $property) {
 					// check for each property name found within the block's data
@@ -307,7 +308,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . ' updated: ' . $new_obj_data);
 				}
 			} // !empty($json)
-		} // in_array($block_name, $this->_props)
+		} // in_array($block_name, SyncWooCommerceTargetApi::$gutenberg_props)
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' returning');
 		return $content;
 	}

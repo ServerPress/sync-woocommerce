@@ -12,29 +12,12 @@ class SyncWooCommerceSourceApi extends SyncInput
 	private $_category_shortcode_ids = array();								// list of category IDs referenced in shortcodes
 	private $_tag_shortcode_ids = array();									// list of tag IDs referenced in shortcodes
 
-	private $_props = array(						// array of block names and the properties they reference
-		// properties for: WooCommerce Blocks
-		'wp:woocommerce/featured-category' =>			'categoryId:t',				// 1 mediaId:i
-		'wp:woocommerce/featured-product' =>			'productId:p',				// 2 mediaId:i
-		'wp:woocommerce/handpicked-products' =>			'[products:p',				// 3
-		'wp:woocommerce/product-best-sellers' =>		'[categories:t',			// 4 sharedAttributes
-	//	'wp:woocommerce/product-categories' - no ids in json
-		'wp:woocommerce/product-category' =>			'[categories:t',			// 5 sharedAttributes
-		'wp:woocommerce/product-new' =>					'[categories:t',			// 6 sharedAttributes
-		'wp:woocommerce/product-on-sale' =>				'[categories:t',			// 7 sharedAttributes
-		'wp:woocommerce/product-tag' =>					'[tags:t',					// 8
-		'wp:woocommerce/product-top-rated' =>			'[categories:t',			// 9
-		'wp:woocommerce/products-by-attribute' =>		'',							// 10
-	//	product grid =>									'[categories:t',
-	//	featured category =>							'mediaId:i',
-	//	featured product =>								'mediaId:i',
-	);
-	private $_block_names = NULL;					// array of block names (keys) from $_props
+	private $_block_names = NULL;											// array of block names (keys) from $gutenberg_props
 
 
 	public function __construct()
 	{
-		$this->_block_names = array_keys($this->_props);
+		$this->_block_names = array_keys(SyncWooCommerceApiRequest::$gutenberg_props);
 		$this->_sync_model = new SyncModel();
 	}
 
@@ -263,6 +246,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' var=' . $this->variations . ' inc
 		case 'product':
 			if ($sce->has_attribute('ids'))
 				$products[] = $sce->get_attribute('ids');
+			if ($sce->has_attribute('id'))
+				$products[] = $sce->get_attribute('id');
 			break;
 		case 'product_page':
 		case 'add_to_cart':
@@ -364,10 +349,10 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 
 		if (!empty($json) && NULL !== $obj) {
 			// this block has a JSON object embedded within it
-			$props = explode('|', $this->_props[$block_name]);
+			$props = explode('|', SyncWooCommerceTargetApi::$gutenberg_props[$block_name]);
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
 			foreach ($props as $property) {
-				// for each property listed in the $_props array, look to see if it refers to an image ID
+				// for each property listed in the $gutenberg_props array, look to see if it refers to an image ID
 				$ref_ids = array();
 				$gbentry = new SyncGutenbergEntry($property); // $apirequest->parse_property($property);
 //					$this->_parse_property($property);
@@ -394,7 +379,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found property "' . $prop_name . '" referencing ids ' . implode(',', $ref_ids));
 
 				switch ($gbentry->prop_type) {
-				case self::PROPTYPE_IMAGE:
+				case SyncGutenbergEntry::PROPTYPE_IMAGE:
 					// get the thumbnail id if we haven't already
 					if (NULL === $this->_thumb_id)			// if the thumb id hasn't already been determined, get it here
 						$this->_thumb_id = abs(get_post_thumbnail_id($source_post_id));

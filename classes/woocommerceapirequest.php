@@ -27,6 +27,24 @@ class SyncWooCommerceApiRequest extends SyncInput
 	public $local_media_name;
 
 
+	public static $gutenberg_props = array(					// array of block names and the properties they reference
+		// properties for: WooCommerce Blocks
+		'wp:woocommerce/featured-category' =>			'categoryId:t',				// 1 mediaId:i
+		'wp:woocommerce/featured-product' =>			'productId:p',				// 2 mediaId:i
+		'wp:woocommerce/handpicked-products' =>			'[products:p',				// 3
+		'wp:woocommerce/product-best-sellers' =>		'[categories:t',			// 4 sharedAttributes
+	//	'wp:woocommerce/product-categories' - no ids in json
+		'wp:woocommerce/product-category' =>			'[categories:t',			// 5 sharedAttributes
+		'wp:woocommerce/product-new' =>					'[categories:t',			// 6 sharedAttributes
+		'wp:woocommerce/product-on-sale' =>				'[categories:t',			// 7 sharedAttributes
+		'wp:woocommerce/product-tag' =>					'[tags:t',					// 8
+		'wp:woocommerce/product-top-rated' =>			'[categories:t',			// 9
+		'wp:woocommerce/products-by-attribute' =>		'',							// 10
+	//	product grid =>									'[categories:t',
+	//	featured category =>							'mediaId:i',
+	//	featured product =>								'mediaId:i',
+	);
+
 	/**
 	 * Change the content type for get_sync_data
 	 * @return string

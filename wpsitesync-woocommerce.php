@@ -239,7 +239,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__);
 		{
 			// https://docs.woocommerce.com/document/woocommerce-shortcodes/
 			// https://www.tytonmedia.com/blog/woocommerce-shortcodes-list/
-			$shortcodes['product'] = 'ids:pl';
+			$shortcodes['product'] = 'ids:pl|id:p';
 			$shortcodes['products'] = 'ids:pl|category:s|tag:t';
 			$shortcodes['product_page'] = 'id:p';
 			$shortcodes['product_category'] = 'category:t|ids:p|parent:t';
