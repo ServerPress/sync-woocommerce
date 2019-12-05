@@ -6,6 +6,7 @@ class SyncWooCommerceSourceApi extends SyncInput
 	private $_api;															// reference to SyncApiRequest
 	private $_sync_model;													// reference to SyncModel
 	private $_processing_variations = FALSE;								// set to TRUE when processing variable products
+	private $_thumb_id = NULL;												// thumbnail id used to pass to gutenberg_attachment_block()
 
 	// used for tracking product and taxonomy IDs referenced within shortcodes
 	private $_product_shortcode_ids = array();								// list of product IDs referenced in shortcodes
@@ -397,6 +398,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 				case SyncGutenbergEntry::PROPTYPE_LINK:
 					break;
 				case SyncGutenbergEntry::PROPTYPE_POST:
+					$apirequest->trigger_push_complete();
 					break;
 				case SyncGutenbergEntry::PROPTYPE_USER:
 					break;

@@ -218,7 +218,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 			$delete_list = array_diff($target_variations, $variation_ids);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implode(',' ,$delete_list));
 			foreach ($delete_list as $delete_id) {
-#@#				wp_delete_post($delete_id);
+				wp_delete_post($delete_id);
 				// TODO: remove any images
 				$this->_sync_model->remove_sync_data($delete_id, 'post' /*'woovariableproduct'*/ );
 			}
@@ -246,7 +246,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 	 */
 	public function process_gutenberg_block($content, $block_name, $json, $target_post_id, $start, $end, $pos)
 	{
-//SyncDebug::log(__METHOD__.'():' . __LINE__);
+SyncDebug::log(__METHOD__.'():' . __LINE__);
 		// look for known block names
 		if (in_array($block_name, $this->_block_names)) {
 			// check to see if it's one of the form block names; skip those
@@ -260,56 +260,59 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 					$this->_sync_model = new SyncModel();
 				}
 
-				$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
-				foreach ($props as $property) {
-					// check for each property name found within the block's data
-					$this->_parse_property($property);
+				// only need to process block names that are in our known list
+				if (isset(SyncWooCommerceApiRequest::$gutenberg_props[$block_name])) {
+					$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
+					foreach ($props as $property) {
+						// check for each property name found within the block's data
+						$gb_entry = new SyncGutenbergEntry($property);	// $this->_parse_property($property);
 //						$prop_name = $this->_prop_name;
 
-					if ($this->_prop_array) {								// property denotes an array reference
-						if (isset($obj->{$this->_prop_list[0]})) {			// make sure property exists
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking array: "' . $this->_prop_list[0] . '"');
-							$idx = 0;
-							foreach ($obj->{$this->_prop_list[0]} as &$entry) {
-								$source_ref_id = $this->_get_val($entry, $idx);
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
-								if (0 !== $source_ref_id) {
-									// get the Target's post ID from the Source's post ID
-									$target_ref_id = $this->_get_target_ref($source_ref_id);
-									if (FALSE !== $target_ref_id) {
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_ref_id . ' to Target ID ' . $target_ref_id);
-										$this->_set_val($entry, $target_ref_id, $idx);
-										$updated = TRUE;
+						if ($gb_entry->_prop_array) {								// property denotes an array reference
+							if (isset($obj->{$gb_entry->prop_list[0]})) {			// make sure property exists
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking array: "' . $gb_entry->prop_list[0] . '"');
+								$idx = 0;
+								foreach ($obj->{$gb_entry->prop_list[0]} as &$entry) {
+									$source_ref_id = $gb_entry->get_val($entry, $idx);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
+									if (0 !== $source_ref_id) {
+										// get the Target's post ID from the Source's post ID
+										$target_ref_id = $gb_entry->get_target_ref($source_ref_id);
+										if (FALSE !== $target_ref_id) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_ref_id . ' to Target ID ' . $target_ref_id);
+											$gb_entry->set_val($entry, $target_ref_id, $idx);
+											$updated = TRUE;
+										}
 									}
+									++$idx;
 								}
-								++$idx;
-							}
-						} // isset
-					} else {												// single reference
-						$source_ref_id = $this->_get_val($obj);
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
-						if (0 !== $source_ref_id) {
-							// get the Target's post ID from the Source's post ID
-							$target_ref_id = $this->_get_target_ref($source_ref_id);
-							if (FALSE !== $target_ref_id) {
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_ref_id . ' to Target ID ' . $target_ref_id);
-								$this->_set_val($obj, $target_ref_id);
-								$updated = TRUE;
+							} // isset
+						} else {												// single reference
+							$source_ref_id = $gb_entry->get_val($obj);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
+							if (0 !== $source_ref_id) {
+								// get the Target's post ID from the Source's post ID
+								$target_ref_id = $gb_entry->get_target_ref($source_ref_id);
+								if (FALSE !== $target_ref_id) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_ref_id . ' to Target ID ' . $target_ref_id);
+									$gb_entry->set_val($obj, $target_ref_id);
+									$updated = TRUE;
+								}
 							}
 						}
-					}
-				} // foreach
+					} // foreach
 
-				if ($updated) {
-					// one or more properties were updated with their Target post ID values- update the content
-					$new_obj_data = json_encode($obj, JSON_UNESCAPED_SLASHES);
-					$content = substr($content, 0, $start) . $new_obj_data . substr($content, $end + 1);
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . ' updated: ' . $new_obj_data);
-				}
+					if ($updated) {
+						// one or more properties were updated with their Target post ID values- update the content
+						$new_obj_data = json_encode($obj, JSON_UNESCAPED_SLASHES);
+						$content = substr($content, 0, $start) . $new_obj_data . substr($content, $end + 1);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . ' updated: ' . $new_obj_data);
+					}
+				} // isset(SyncWooCommerceApiRequest::$gutenberg_props[$block_name])
 			} // !empty($json)
 		} // in_array($block_name, SyncWooCommerceApiRequest::$gutenberg_props)
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' returning');
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' returning');
 		return $content;
 	}
 
