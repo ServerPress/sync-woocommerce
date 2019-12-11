@@ -127,8 +127,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target weight: ' . var_export($
 			return TRUE;            // return, signaling that the API request was processed
 		}
 
-		#@# TODO: add licensing check
-
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post_data information: ' . var_export($post_data, TRUE));
@@ -223,6 +221,69 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 				$this->_sync_model->remove_sync_data($delete_id, 'post' /*'woovariableproduct'*/ );
 			}
 #@#			_prime_post_caches($target_variations);
+		}
+
+		// if handling Simple or first Variable Product, check for attribute taxonomies #12
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking for attribute taxonomies');
+		if (isset($_POST['product_attribute_taxonomies']) && function_exists('wc_create_attribute')) {
+			$target_attributes = wc_get_attribute_taxonomies();
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' existing attributes: ' . var_export($target_attributes, TRUE));
+			$source_attributes = $this->post_raw('product_attribute_taxonomies', array());
+
+			// save taxonomy information. this is ugly but it allows the wc_create_attribute() call to work
+			global $wp_taxonomies;
+			$save_wp_taxonomies = $wp_taxonomies;
+
+			foreach ($source_attributes as $source_attr) {
+				$found = NULL;
+				foreach ($target_attributes as $target_attr) {
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' searching attributes source=' . $source_attr['name'] . ' target=' . $target_attr->name);
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' searching attributes source=' . var_export($source_attr, TRUE) . ' target=' . var_export($target_attr, TRUE));
+					if ($source_attr['attribute_name'] == $target_attr->attribute_name) {		// `name` is the only indexed column
+						$found = $target_attr;
+						$attr_id = abs($target_attr->attribute_id);
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found match id=' . $attr_id);
+						break;
+					}
+				}
+
+				// setup attributes prior to helper function call
+				$attr_args = array(
+					'name' => $source_attr['attribute_name'],
+					'label' => $source_attr['attribute_label'],
+					'type' => $source_attr['attribute_type'],
+					'orderby' => $source_attr['attribute_orderby'],
+					'public' => $source_attr['attribute_public'],
+				);
+
+				// remove tax name so wc_update_attribute() will work
+				$attr_tax_name = wc_attribute_taxonomy_name( $attr_args['name'] );
+				unset($wp_taxonomies[$attr_tax_name]);
+				$tax_exists = taxonomy_exists( $attr_tax_name );
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' attr tax name=' . var_export($attr_tax_name, TRUE) . ' tax_exists=' . var_export($tax_exists, TRUE));
+
+				// helper functions clear attribute transients so no need to do this ourselves
+				if (NULL === $found) {
+					// Product Attribute not found - create it
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' creating attribute ' . var_export($attr_args, TRUE));
+					$res = wc_create_attribute($attr_args);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' res=' . var_export($res, TRUE));
+				} else {
+					// update the existing Product Attribute data
+					$target_attr = $found;					// rename for clarity
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating attribute #' . $target_attr->attribute_id . '/' . $attr_id . '=' . var_export($attr_args, TRUE));
+
+					$res = wc_update_attribute($attr_id, $attr_args);
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' res=' . var_export($res, TRUE));
+// if ( ( 0 === $id && taxonomy_exists( wc_attribute_taxonomy_name( $slug ) ) ) ||
+//	( isset( $args['old_slug'] ) && $args['old_slug'] !== $slug && taxonomy_exists( wc_attribute_taxonomy_name( $slug ) ) ) ) {
+				}
+			}
+			// restore taxonomy array
+			$wp_taxonomies = $save_wp_taxonomies;
+
+			// wc_create_attribute()
+			// wc_delete_attribute()
 		}
 
 		// clear transients and other objects srs#15.d

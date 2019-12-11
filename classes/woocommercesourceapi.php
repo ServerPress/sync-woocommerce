@@ -153,6 +153,30 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 					$associated_id = $meta_value[0];
 					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'post' /*'woovariableproduct'*/, $action);
 					break;
+
+				case '_product_attributes':
+					$attributes = maybe_unserialize($meta_value);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking product attributes ' . var_export($attributes, TRUE));
+#					$taxonomies = $attributes[0];
+#					foreach ($taxonomies as $tax_name => $tax_data) {
+#						$taxname = $tax_data['name'];
+#						if ('pa_' === substr($taxname, 0, 3)) {
+#							$terms = get_the_terms($post_id, $taxname);
+#							foreach ($terms as $tax_term) {
+#								$data['product_attributes'][] = $tax_term;
+#							}
+#						}
+#					}
+
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' offset=' . $offset);
+					// include a list of Product Attributes #12
+#					$pa_terms = get_the_terms($product_id, $tax);
+#					if (0 === $offset) {
+						// only provide list on first Push in the case of Variable Products
+						$pa_taxonomies = wc_get_attribute_taxonomies();
+						$data['product_attribute_taxonomies'] = $pa_taxonomies;
+#					}
+					break;
 				}
 			}
 		}
@@ -194,8 +218,14 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' data=' . var_export($data, TRUE
 		return $data;
 	}
 
+	/**
+	 * Add the 'product_variation' post type to allowed post type list
+	 * @param array $post_types The current allowed post types
+	 * @return array Allowed post type list with 'product_variation' added
+	 */
 	public function filter_allowed_post_types($post_types)
 	{
+		// TODO: likely not needed since a product_variation will not be pushed by itself
 		$post_types[] = 'product_variation';
 		return $post_types;
 	}
