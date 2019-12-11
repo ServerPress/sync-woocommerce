@@ -330,8 +330,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE
 						$gb_entry = new SyncGutenbergEntry($property);	// $this->_parse_property($property);
 //						$prop_name = $this->_prop_name;
 
-						if ($gb_entry->_prop_array) {								// property denotes an array reference
-							if (isset($obj->{$gb_entry->prop_list[0]})) {			// make sure property exists
+						if ($gb_entry->prop_array) {							// property denotes an array reference
+							if (isset($obj->{$gb_entry->prop_list[0]})) {		// make sure property exists
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking array: "' . $gb_entry->prop_list[0] . '"');
 								$idx = 0;
 								foreach ($obj->{$gb_entry->prop_list[0]} as &$entry) {
