@@ -326,15 +326,19 @@ SyncDebug::log(__METHOD__.'():' . __LINE__);
 					$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
 					foreach ($props as $property) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' examining property "' . $property . '"');
 						// check for each property name found within the block's data
 						$gb_entry = new SyncGutenbergEntry($property);	// $this->_parse_property($property);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' gb entry ' . var_export($gb_entry, TRUE));
 //						$prop_name = $this->_prop_name;
 
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' json=' . $json);
 						if ($gb_entry->prop_array) {							// property denotes an array reference
 							if (isset($obj->{$gb_entry->prop_list[0]})) {		// make sure property exists
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking array: "' . $gb_entry->prop_list[0] . '"');
 								$idx = 0;
 								foreach ($obj->{$gb_entry->prop_list[0]} as &$entry) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' entry: ' . var_export($entry, TRUE));
 									$source_ref_id = $gb_entry->get_val($entry, $idx);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
 									if (0 !== $source_ref_id) {
@@ -347,6 +351,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_re
 										}
 									}
 									++$idx;
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' done with list');
 								}
 							} // isset
 						} else {												// single reference
