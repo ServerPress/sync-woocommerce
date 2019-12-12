@@ -365,10 +365,30 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_re
 					} // foreach
 
 					if ($updated) {
-						// one or more properties were updated with their Target post ID values- update the content
+						// one or more properties were updated with their Target post ID
+						// values. update the content with the new JSON data
 						$new_obj_data = json_encode($obj, JSON_UNESCAPED_SLASHES);
 						$content = substr($content, 0, $start) . $new_obj_data . substr($content, $end + 1);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . ' updated: ' . $new_obj_data);
+					}
+
+					// check for any block specific updates
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' block content update check for ' . $block_name);
+					switch ($block_name) {
+					case 'wp:woocommerce/reviews-by-product':
+						// need to update data-product-id="{product ID}" attribute references within generated block content
+						$source_product_id = abs($gb_entry->get_val('productId'));
+						$source_attribute = ' data-product-id="' . $source_product_id . '"';
+						if (0 !== $source_product_id && FALSE !== strpos($content, $source_attribute)) {
+							$sync_data = $this->_sync_model->get_sync_data($source_product_id);
+							if (NULL !== $sync_data) {
+								$target_attribute = ' data-product-id="' . $sync_data->target_content_id . '"';
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating [' . $source_attribute . '] to [' . $target_attribute . ']');
+								$content = substr($source_attribute, $target_attribute, $content);
+								$updated = TRUE;
+							}
+						}
+						break;
 					}
 				} // isset(SyncWooCommerceApiRequest::$gutenberg_props[$block_name])
 			} // !empty($json)
