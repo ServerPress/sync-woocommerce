@@ -376,16 +376,18 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' original: ' . $json . PHP_EOL . '
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' block content update check for ' . $block_name);
 					switch ($block_name) {
 					case 'wp:woocommerce/reviews-by-product':
+						$gb_entry = new SyncGutenbergEntry('productId:p');
 						// need to update data-product-id="{product ID}" attribute references within generated block content
-						$source_product_id = abs($gb_entry->get_val('productId'));
-						$source_attribute = ' data-product-id="' . $source_product_id . '"';
-						if (0 !== $source_product_id && FALSE !== strpos($content, $source_attribute)) {
-							$sync_data = $this->_sync_model->get_sync_data($source_product_id);
+						$product_id = abs($gb_entry->get_val($obj));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' prod id ' . $product_id);
+						if (0 !== $product_id && FALSE !== strpos($content, 'data-product-id=')) {
+//							$sync_data = $this->_sync_model->get_sync_data($product_id, $this->_api_controller->source_site_key);
+							$sync_data = $this->_sync_model->get_source_from_target($product_id, $this->_api_controller->source_site_key);
 							if (NULL !== $sync_data) {
-								$target_attribute = ' data-product-id="' . $sync_data->target_content_id . '"';
+								$source_attribute = ' data-product-id="' . $sync_data->source_content_id . '"';
+								$target_attribute = ' data-product-id="' . $product_id . '"';
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating [' . $source_attribute . '] to [' . $target_attribute . ']');
-								$content = substr($source_attribute, $target_attribute, $content);
-								$updated = TRUE;
+								$content = str_replace($source_attribute, $target_attribute, $content);
 							}
 						}
 						break;
