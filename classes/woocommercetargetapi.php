@@ -124,7 +124,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source weight: ' . var_export(g
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target weight: ' . var_export($units['dimension_unit'], TRUE));
 
 			$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_UNIT_MISMATCH);
-			return TRUE;            // return, signaling that the API request was processed
+			return TRUE;				// return, signaling that the API request was processed
 		}
 
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
@@ -334,27 +334,39 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' gb entry ' . var_export($gb_entry
 
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' json=' . $json);
 						if ($gb_entry->prop_array) {							// property denotes an array reference
-							if (isset($obj->{$gb_entry->prop_list[0]})) {		// make sure property exists
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking array: "' . $gb_entry->prop_list[0] . '"');
-								$idx = 0;
-								foreach ($obj->{$gb_entry->prop_list[0]} as &$entry) {
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' entry: ' . var_export($entry, TRUE));
-									$source_ref_id = $gb_entry->get_val($entry, $idx);
+							$max = 1;
+							if ($gb_entry->prop_array) {
+								$max = $gb_entry->array_size($obj);
+							}
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' array size=' . $max);
+
+/*							$prop_arr = array();
+							if (isset($obj->{$gb_entry->prop_name})) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' prop_name=' . $gb_entry->prop_name);
+								$prop_arr = $gb_entry->get_val($obj, $idx);
+							} else {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' prop array=' . implode('.', $gb_entry->prop_list));
+								if (isset($obj->{$gb_entry->prop_list[0]}))		// make sure property exists
+									$prop_arr = $obj->{$gb_entry->prop_list[0]};
+							} */
+
+							for ($idx = 0; $idx < $max; $idx++) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' idx=' . $idx);
+								$source_ref_id = $gb_entry->get_val($obj, $idx);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
-									if (0 !== $source_ref_id) {
-										// get the Target's post ID from the Source's post ID
-										$target_ref_id = $gb_entry->get_target_ref($source_ref_id);
-										if (FALSE !== $target_ref_id) {
+								if (0 !== $source_ref_id) {
+									// get the Target's post ID from the Source's post ID
+									$target_ref_id = $gb_entry->get_target_ref($source_ref_id);
+									if (FALSE !== $target_ref_id) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating Source ID ' . $source_ref_id . ' to Target ID ' . $target_ref_id);
-											$gb_entry->set_val($entry, $target_ref_id, $idx);
-											$updated = TRUE;
-										}
+										$gb_entry->set_val($obj, $target_ref_id, $idx);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' obj=' . var_export($obj, TRUE));
+										$updated = TRUE;
 									}
-									++$idx;
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' done with list');
 								}
-							} // isset
-						} else {												// single reference
+							} // foreach
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' done with list');
+						} else {												// scaler reference
 							$source_ref_id = $gb_entry->get_val($obj);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source ref=' . var_export($source_ref_id, TRUE));
 							if (0 !== $source_ref_id) {
