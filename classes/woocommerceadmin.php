@@ -55,7 +55,7 @@ class SyncWooCommerceAdmin
 		echo '<div id="sync-msg-update-changes">', esc_html__('Please save Content before Syncing', 'wpsitesync-woocommerce'), '</div>';
 		global $post;
 		$type = (isset($post) && isset($post->post_type)) ? $post->post_type : '';
-		if ('product' === $post->post_type) {
+		if ('product' === $type) {
 			$product = wc_get_product($post->ID);
 			$prod_type = $product->get_type();
 			$type .= '-' . $prod_type;
