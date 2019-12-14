@@ -292,6 +292,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__, TRUE);
 					'product_tag' => get_taxonomy('product_tag'),
 					'product_type' => get_taxonomy('product_type'),
 					'product_shipping_class' => get_taxonomy('product_shipping_class'),
+					'product_visibility' => get_taxonomy('product_visibility'),
 				);
 				$attributes = wc_get_attribute_taxonomy_names();
 				foreach ($attributes as $attribute) {
