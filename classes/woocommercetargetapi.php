@@ -158,6 +158,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value: ' . var_export($meta_
 					$value = maybe_unserialize(stripslashes($value));
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value ' . var_export($value, TRUE));
 					switch ($meta_key) {
+					case '_children':
 					case '_upsell_ids':
 					case '_crosssell_ids':
 						$target_ids = $this->post_raw($meta_key, array());

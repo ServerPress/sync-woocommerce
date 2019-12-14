@@ -4,7 +4,8 @@ class SyncWooCommerceSourceApi extends SyncInput
 {
 	public $variations = 0;													// number of variations associated with this product
 	private $_api;															// reference to SyncApiRequest
-	private $_sync_model;													// reference to SyncModel
+	private $_response = NULL;												// reference to SyncApiResponse
+	private $_sync_model = NULL;											// reference to SyncModel
 	private $_processing_variations = FALSE;								// set to TRUE when processing variable products
 	private $_thumb_id = NULL;												// thumbnail id used to pass to gutenberg_attachment_block()
 
@@ -63,6 +64,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' filtering push content=' . var_
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' for post id=' . var_export($post_id, TRUE));
 		// meeded by other private methods so save this in class instance
 		$this->_api = $apirequest;
+		$this->_response = $this->_api->get_response();
 
 		$site_url = site_url();
 		$data['source_domain'] = site_url();
@@ -132,6 +134,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 					$this->_get_product_gallery($post_id, $meta_value);
 					break;
 
+				case '_children':
 				case '_upsell_ids':
 				case '_crosssell_ids':
 					$ids = maybe_unserialize($meta_value[0]);
@@ -492,16 +495,19 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding product image id=' . var
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' associated id: ' . var_export($associated_id, TRUE));
 		$associated = array();
 
-		// TODO: check for dependencies, use ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED as appropriate
 		if ('pull' === $action) {
 			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'), $type);
 			if (NULL !== $sync_data) {
 				$associated['target_id'] = $sync_data->source_content_id;
+			} else {
+				$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
 			}
 		} else {
 			$sync_data = $this->_sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), $type);
 			if (NULL !== $sync_data) {
 				$associated['target_id'] = $sync_data->target_content_id;
+			} else {
+				$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
 			}
 		}
 
