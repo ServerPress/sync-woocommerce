@@ -38,8 +38,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations...skipping'
 			return $data;
 		}
 
-#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-#@#			return $data;
+//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+//			return $data;
 
 		$post_id = 0;
 		$action = 'push';
@@ -108,20 +108,20 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found ' . $this->variations . '; 
 			$ids = $slice;
 
 			// get information on each of the variations using SyncApiRequest::get_push_data()
-#@#			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 10, 1);
+///			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 10, 1);
 			foreach ($ids as $key => $id) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding variation id=' . var_export($id, TRUE));
 				// the SyncApiRequest->_post_data is reset inside get_push_data()
-#@#				$this->_api->clear_post_data();
+///				$this->_api->clear_post_data();
 				// TODO: do these have their own dependencies, taxonomies, etc?
-#@#				$temp_data = array();
-#@#				$data['product_variations'][] = $this->_api->get_push_data($id, $temp_data);
+///				$temp_data = array();
+///				$data['product_variations'][] = $this->_api->get_push_data($id, $temp_data);
 				$var_data = get_post($id, ARRAY_A);
 				$meta_data = get_post_meta($id);
 				// TODO: push images
 				$data['product_variations'][] = array('post_data' => $var_data, 'post_meta' => $meta_data);
 			}
-#@#			$this->_api->set_post_data($data);
+///			$this->_api->set_post_data($data);
 			$this->_processing_variations = FALSE;
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($data['product_variations'], TRUE));
 		}
@@ -261,7 +261,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' var=' . $this->variations . ' inc
 			}
 		}
 	}
-	
+
 	/**
 	 * Checks the content of shortcodes, looking for Product references that have not yet
 	 * been Pushed and taxonomy information that needs to be added to the Push content.

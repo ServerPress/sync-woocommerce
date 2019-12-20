@@ -37,8 +37,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' WC does not exist');
 			return TRUE;
 		}
 
-#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-#@#			return $data;
+//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+//			return $data;
 
 		// check for strict mode and version mismatch
 		if (1 === SyncOptions::get_int('strict', 0)) {
@@ -108,8 +108,8 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 
 		if ('product' !== $post_data['post_type'])
 			return;										// don't need to do anything if it's not a 'product' post type
-#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-#@#			return;
+//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+//			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
 		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
@@ -190,7 +190,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating post_meta for #' . $targ
 		if (!empty($product_variations)) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 			$variations = $this->_process_variations($target_post_id, $product_variations);
-			$response->set('variations', $variations);				#@# still needed?
+			$response->set('variations', $variations);				// still needed?
 		}
 
 		// is there anything to delete? srs#15.c.ii.4
@@ -221,7 +221,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 				// TODO: remove any images
 				$this->_sync_model->remove_sync_data($delete_id, 'post');
 			}
-#@#			_prime_post_caches($target_variations);
+///			_prime_post_caches($target_variations);
 		}
 
 		// if handling Simple or first Variable Product, check for attribute taxonomies #12
@@ -290,9 +290,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating attribute #' . $target_a
 		// clear transients and other objects srs#15.d
 		wc_delete_product_transients($target_post_id);
 //		WC_Post_Data::delete_product_query_transients();
-#@#		delete_transient('wc_attribute_taxonomies');
-#@#		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
-#@#		_prime_post_caches($target_post_id);
+///		delete_transient('wc_attribute_taxonomies');
+///		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
+///		_prime_post_caches($target_post_id);
 	}
 
 	/**
@@ -505,7 +505,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_
 		$variation_data = array();
 		$variation_ids = array();
 		$post = NULL;
-#@#		$start_time = microtime();
+///		$start_time = microtime();
 
 		foreach ($variations as $variation_index => $variation) {
 			$post_data = $variation['post_data'];
@@ -572,11 +572,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' adding variation meta value ' . v
 			$variation_ids[] = $variation_post_id;
 			$variation_data[] = array('target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
 
-#@#			$end_time = microtime();
-#@#			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
-#@#				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
-#@#				break;
-#@#			}
+///			$end_time = microtime();
+///			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
+///				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
+///				break;
+///			}
 		} // foreach ($variations)
 
 		// delete variations if not in current sync data
