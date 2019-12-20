@@ -45,16 +45,6 @@ class SyncWooCommerceApiRequest extends SyncInput
 	//	featured category =>							'mediaId:i',
 	//	featured product =>								'mediaId:i',
 	);
-
-	/**
-	 * Change the content type for get_sync_data
-	 * @return string
-	 */
-	// TODO: remove- no need to change the data type
-	public function change_media_content_type_variable()
-	{
-		return 'woovariableproduct';
-	}
 }
 
 // EOF
