@@ -38,7 +38,12 @@ console.log(this.offset);
 	}
 };
 
-// TODO:
+/**
+ * Filters the data to be sent via AJAX API call
+ * @param {Event} event Event triggering the filter
+ * @param {object} data The data object to be sent via AJAX to the site
+ * @returns {object} modified data object
+ */
 WPSiteSyncContent_WooCommerce.prototype.filter_sync_data = function(event, data)
 {
 console.log('wc filter_sync_data() offset=');
@@ -49,7 +54,10 @@ console.log(data);
 	return data;
 };
 
-// TODO:
+/**
+ * Callback method invoked by WPSiteSyncContent.api() before and after a Push operation
+ * @param {object} data The post id or the response object for API calls
+ */
 WPSiteSyncContent_WooCommerce.prototype.push_callback = function(data)
 {
 	var type = typeof(data);
@@ -146,13 +154,14 @@ console.log('wc set_progress() resubmitting push, id=' + wpsitesynccontent.wooco
 /**
  * Disables Sync Button every time the content changes.
  */
+/* deprecated
 WPSiteSyncContent_WooCommerce.prototype.on_content_change = function()
 {
 	this.disable = true;
 	jQuery('#sync-content').attr('disabled', true);
 	wpsitesynccontent.set_message(jQuery('#sync-msg-update-changes').html());
 	jQuery('#disabled-notice-sync').show();
-};
+}; */
 
 /**
  * Push WooCommerce products from target site
