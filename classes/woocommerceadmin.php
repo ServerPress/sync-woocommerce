@@ -47,32 +47,35 @@ class SyncWooCommerceAdmin
 	 */
 	public function print_hidden_div()
 	{
-		// TODO: only output this when editing a Woo product
-		// TODO: use Sync callback for outputting admin content
-		echo '<div style="display:none">';
-		echo '<div id="sync-woo-push-working">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
-		echo '<div id="sync-woo-pull-working">', esc_html__('Pulling Content From Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
-		echo '<div id="sync-msg-update-changes">', esc_html__('Please save Content before Syncing', 'wpsitesync-woocommerce'), '</div>';
+		$screen = get_current_screen();
 		global $post;
-		$type = (isset($post) && isset($post->post_type)) ? $post->post_type : '';
-		if ('product' === $type) {
-			$product = wc_get_product($post->ID);
-			$prod_type = $product->get_type();
-			$type .= '-' . $prod_type;
-		}
-		echo '<div id="sync-woo-product-type">', $type, '</div>';
-		echo '<div id="sync-woo-progress">
-			<div class="sync-woo-ui">
-				<div class="sync-woo-progress">
-					<div class="sync-woo-indicator" style="width:1%">
-						<span class="percent">1</span>%
+		if ('product' === $screen->id && 'product' === $post->post_type) {
+			// TODO: use Sync callback for outputting admin content
+			echo '<div style="display:none">';
+			echo '<div id="sync-woo-push-working">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
+			echo '<div id="sync-woo-pull-working">', esc_html__('Pulling Content From Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
+			echo '<div id="sync-msg-update-changes">', esc_html__('Please save Content before Syncing', 'wpsitesync-woocommerce'), '</div>';
+			global $post;
+			$type = (isset($post) && isset($post->post_type)) ? $post->post_type : '';
+			if ('product' === $type) {
+				$product = wc_get_product($post->ID);
+				$prod_type = $product->get_type();
+				$type .= '-' . $prod_type;
+			}
+			echo '<div id="sync-woo-product-type">', $type, '</div>';
+			echo '<div id="sync-woo-progress">
+				<div class="sync-woo-ui">
+					<div class="sync-woo-progress">
+						<div class="sync-woo-indicator" style="width:1%">
+							<span class="percent">1</span>%
+						</div>
 					</div>
-				</div>
-			</div>'; // #sync-woo-progress
-		echo '</div>'; // display:none
+				</div>'; // #sync-woo-progress
+			echo '</div>'; // display:none
 //		echo '<style type="text/css">', PHP_EOL;
 //		echo '#spectrom_sync { border: 1px solid red; }', PHP_EOL;
 //		echo '</style>', PHP_EOL;
+		}
 	}
 }
 
