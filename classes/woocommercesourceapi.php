@@ -71,7 +71,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' for post id=' . var_export($pos
 		$apirequest->set_source_domain($site_url);
 
 		// get target post id from synced data
-		if (NULL !== ($sync_data = $this->_sync_model->get_sync_target_post($post_id, SyncOptions::get('target_site_key'), 'post' /* 'wooproduct' #4 */ ))) {
+		if (NULL !== ($sync_data = $this->_sync_model->get_sync_target_post($post_id, SyncOptions::get('target_site_key'), 'post'))) {
 			$data['target_post_id'] = $sync_data->target_content_id;
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found product target post id=' . var_export($data['target_post_id'], TRUE));
 		}
@@ -139,7 +139,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 				case '_crosssell_ids':
 					$ids = maybe_unserialize($meta_value[0]);
 					foreach ($ids as $associated_id) {
-						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'post' /* 'wooproduct' #4 */, $action);
+						$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, $action);
 					}
 					break;
 
@@ -154,7 +154,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 				case '_min_sale_price_variation_id':
 				case '_max_sale_price_variation_id':
 					$associated_id = $meta_value[0];
-					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, 'post' /*'woovariableproduct'*/, $action);
+					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, $action);
 					break;
 
 				case '_product_attributes':
@@ -484,13 +484,11 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding product image id=' . var
 	/**
 	 * Process associated products
 	 * @param int $associated_id Product ID
-	 * @param string $type Product type
 	 * @param string $action Pull or Push being processed
 	 * @return array $push_data
 	 */
-	// TODO: remove $type parameter- it's always going to be 'post'
 	// TODO: remove $action parameter; use SyncApiController->get_parent_action()
-	private function _get_associated_products($associated_id, $type = 'post' /* 'wooproduct' #4 */ , $action = 'push')
+	private function _get_associated_products($associated_id, $action = 'push')
 	{
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' associated id: ' . var_export($associated_id, TRUE));
 		$associated = array();
