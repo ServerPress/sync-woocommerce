@@ -219,7 +219,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 			foreach ($delete_list as $delete_id) {
 				wp_delete_post($delete_id);
 				// TODO: remove any images
-				$this->_sync_model->remove_sync_data($delete_id, 'post' /*'woovariableproduct'*/ );
+				$this->_sync_model->remove_sync_data($delete_id, 'post');
 			}
 #@#			_prime_post_caches($target_variations);
 		}
@@ -675,7 +675,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadables: ' . var_export($
 		// check for variation product if no target post id was found and set as featured image
 		if (0 === $target_post_id) {
 			$site_key = $this->_api_controller->source_site_key;
-			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post' /* 'woovariableproduct' #4 */ );
+			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post');
 			$new_variation_id = $sync_data->target_content_id;
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' processing variation image - new id= ' . var_export($new_variation_id, TRUE));
 			if (NULL !== $sync_data && 0 !== $media_id) {
@@ -704,7 +704,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found push target post #' . $targ
 		}
 		// lookup source_id in sync table
 		if (NULL === $meta_post) {
-			$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'post' /* 'wooproduct' #4 */ );
+			$sync_data = $this->_sync_model->get_sync_data($meta_source_id, $this->_api_controller->source_site_key, 'post');
 			if (NULL !== $sync_data) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found target post #' . $sync_data->target_content_id);
 				$new_target_id = $sync_data->target_content_id;
@@ -729,7 +729,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' still no product found - look up 
 
 	/**
 	 * Process variation ids
-	 * @param $target_post_id
 	 * @param array $meta_value Array of Source product IDs
 	 * @param $source_id
 	 * @return int|NULL The Target variation ID on success or NULL on error
@@ -746,7 +745,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found target post #' . $meta_valu
 		}
 		// lookup source_id in sync table
 		if (NULL === $meta_post) {
-			$sync_data = $this->_sync_model->get_sync_data($source_id, $this->_api_controller->source_site_key, 'post' /* 'woovariableproduct' #4 */ );
+			$sync_data = $this->_sync_model->get_sync_data($source_id, $this->_api_controller->source_site_key, 'post');
 			if (NULL !== $sync_data) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found target post #' . $sync_data->target_content_id);
 				$new_id = $sync_data->target_content_id;
@@ -813,8 +812,8 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . '
 	{
 		if (0 === $target_post_id) {
 			$site_key = $this->_api_controller->source_site_key;
-			// TODO: change type to 'post' not 'woovariableproduct'
-			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post' /* 'woovariableproduct' #4 */ );
+			// TODO: use this->post_int('post_id', 0)
+			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post');
 			$target_post_id = $sync_data->target_content_id;
 		}
 
