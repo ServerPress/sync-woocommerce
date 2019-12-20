@@ -5,7 +5,7 @@ Plugin URI: https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
 Description: Extension for WPSiteSync for Content that provides the ability to Sync WooCommerce Products within the WordPress admin.
 Author: WPSiteSync
 Author URI: https://wpsitesync.com
-Version: 0.9.2
+Version: 0.9.4
 Text Domain: wpsitesync-woocommerce
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
@@ -23,10 +23,9 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		private static $_instance = NULL;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
-		const PLUGIN_VERSION = '0.9.2';
+		const PLUGIN_VERSION = '0.9.4';
 		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
-		#@# set min version to 1.5.4 before release
-		const REQUIRED_VERSION = '1.5.3';								// minimum version of WPSiteSync required for this add-on to initialize
+		const REQUIRED_VERSION = '1.5.4';								// minimum version of WPSiteSync required for this add-on to initialize
 
 		private $_api_request = NULL;										// instance of SyncWooCommerceApiRequest
 		private $_source_api = NULL;										// instance of SyncWooCommerceSourceApi
@@ -57,11 +56,10 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		{
 			add_filter('spectrom_sync_active_extensions', array($this, 'filter_active_extensions'), 10, 2);
 
-#@#			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
-#@#				return;
+//			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
+//				return;
 
 			// Check if WooCommerce is installed and activated
-			// TODO: use class_exists('WooCommerce')
 //			include_once ABSPATH . 'wp-admin/includes/plugin.php';
 			if (!class_exists('WooCommerce', FALSE)) {
 				// still need to hook this in order to return 'wc not installed' error message
@@ -162,7 +160,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			$data = $this->_target_api->process_gutenberg_block($content, $block_name, $json, $target_post_id, $start, $end, $pos);
 			return $data;
 		}
-	
+
 		/**
 		 * Check that everything is ready for us to process the Content Push operation on the Target
 		 * @param array $post_data The post data for the current Push
@@ -311,9 +309,10 @@ SyncDebug::log(__METHOD__.'():' . __LINE__, TRUE);
 		 */
 		public function api_arguments($remote_args, $action)
 		{
-			// TODO: check usage within SyncApiRequest
 			$this->_get_api_request();
 			if ('push' === $action || 'pull' === $action) {
+				// this adds the version info on all Push/Pull actions.
+				// TODO: add only for 'product' === post_type
 				$remote_args['headers'][SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION] = WC()->version;
 			}
 			return $remote_args;
