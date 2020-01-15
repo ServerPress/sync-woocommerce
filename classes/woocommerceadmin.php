@@ -49,7 +49,7 @@ class SyncWooCommerceAdmin
 	{
 		$screen = get_current_screen();
 		global $post;
-		if ('product' === $screen->id && 'product' === $post->post_type) {
+		if ('product' === $screen->id && (isset($post->post_type) && 'product' === $post->post_type)) {
 			// TODO: use Sync callback for outputting admin content
 			echo '<div style="display:none">';
 			echo '<div id="sync-woo-push-working">', esc_html__('Pushing Content to Target... Please Stay on This Page', 'wpsitesync-woocommerce'), '</div>';
