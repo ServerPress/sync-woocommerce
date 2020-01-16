@@ -79,6 +79,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found product target post id=' 
 		// get product type
 		$product = wc_get_product($post_id);
 		$data['product_type'] = $product->get_type();
+		$this->start_time = microtime();
 
 		// if variable product, add variations
 		if ($product->is_type('variable')) {
@@ -89,7 +90,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found product target post id=' 
 			$ids = $product->get_children();
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' ids=' . var_export($ids, TRUE));
 			$this->variations = count($ids);
-			$this->start_time = microtime();
 
 			// use the SyncWooCommerceApiRequest::OFFSET_INCREMENT to get a 'chunk' of the array of variations
 			$offset = $this->post_int('offset', 0);
@@ -108,20 +108,20 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found ' . $this->variations . '; 
 			$ids = $slice;
 
 			// get information on each of the variations using SyncApiRequest::get_push_data()
-///			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 10, 1);
+//			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 10, 1);
 			foreach ($ids as $key => $id) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding variation id=' . var_export($id, TRUE));
 				// the SyncApiRequest->_post_data is reset inside get_push_data()
-///				$this->_api->clear_post_data();
+//				$this->_api->clear_post_data();
 				// TODO: do these have their own dependencies, taxonomies, etc?
-///				$temp_data = array();
-///				$data['product_variations'][] = $this->_api->get_push_data($id, $temp_data);
+//				$temp_data = array();
+//				$data['product_variations'][] = $this->_api->get_push_data($id, $temp_data);
 				$var_data = get_post($id, ARRAY_A);
 				$meta_data = get_post_meta($id);
 				// TODO: push images
 				$data['product_variations'][] = array('post_data' => $var_data, 'post_meta' => $meta_data);
 			}
-///			$this->_api->set_post_data($data);
+//			$this->_api->set_post_data($data);
 			$this->_processing_variations = FALSE;
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($data['product_variations'], TRUE));
 		}
@@ -187,8 +187,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking product attributes ' . v
 		// check if any featured images or downloads in variations need to be added to queue
 		if (array_key_exists('product_variations', $data)) {
 			foreach ($data['product_variations'] as $var) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' product variation: ' . var_export($var, TRUE));
 				// process variation featured image
-				if (0 !== abs($var['thumbnail'])) {
+				$thumb_id = 0;
+				if (isset($var['thumbnail']))
+					$thumb_id = abs($var['thumbnail']);
+				if (0 !== $thumb_id) {
 					// TODO: use upload_media_by_id()
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' variation has thumbnail id=' . var_export($var['thumbnail'], TRUE));
 					$img = wp_get_attachment_image_src($var['thumbnail'], 'full');
@@ -494,14 +498,14 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' associated id: ' . var_export($
 		$associated = array();
 
 		if ('pull' === $action) {
-			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'), $type);
+			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'));
 			if (NULL !== $sync_data) {
 				$associated['target_id'] = $sync_data->source_content_id;
 			} else {
 				$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
 			}
 		} else {
-			$sync_data = $this->_sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'), $type);
+			$sync_data = $this->_sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'));
 			if (NULL !== $sync_data) {
 				$associated['target_id'] = $sync_data->target_content_id;
 			} else {

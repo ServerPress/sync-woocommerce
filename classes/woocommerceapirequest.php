@@ -21,7 +21,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 
 	const HEADER_WOOCOMMERCE_VERSION = 'x-woocommerce-version'; // WooCommerce version number; used in requests and responses
 
-	const OFFSET_INCREMENT = 10;									// number of variations to process for each API call
+	const OFFSET_INCREMENT = 4;									// number of variations to process for each API call
 
 	public $media_id;
 	public $local_media_name;

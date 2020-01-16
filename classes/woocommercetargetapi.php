@@ -221,7 +221,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 				// TODO: remove any images
 				$this->_sync_model->remove_sync_data($delete_id, 'post');
 			}
-///			_prime_post_caches($target_variations);
+//			_prime_post_caches($target_variations);
 		}
 
 		// if handling Simple or first Variable Product, check for attribute taxonomies #12
@@ -289,10 +289,51 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating attribute #' . $target_a
 
 		// clear transients and other objects srs#15.d
 		wc_delete_product_transients($target_post_id);
+
+		// check for updating the lookup tables https://woocommerce.wordpress.com/2019/04/01/performance-improvements-in-3-6/
+		if (version_compare($GLOBALS['woocommerce']->version, '3.6', '>=')) {
+/*			if (class_exists('WC_Data_Store_WP', FALSE)) {
+				require_once(__DIR__ . DIRECTORY_SEPARATOR . 'woocommercedatastore.php');
+				$wcds = new SyncWooCommerceDataStore();
+				$wcds->update_table($target_post_id);		// calls WC_Data_Store_WP::update_lookup_table($target_post_id);
+			} */
+
+			// possible product types: 'simple', 'grouped', 'external', 'variable', 'virtual', 'downloadable'
+			$product = new WC_Product($target_post_id);
+			$product_type = $product->get_type();
+			// use the product type specific data store classes to force updates of lookup tables
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product #' . $target_post_id . ' type "' . $product_type . '"');
+			switch ($product_type) {
+			case 'simple':
+				$ds = new WC_Product_Data_Store_CPT();
+				$ds->update($product);
+				$ds->update_product_stock($target_post_id);
+				$ds->update_product_sales($target_post_id);
+				break;
+			case 'grouped':
+				$ds = new WC_Product_Grouped_Data_Store_CPT();
+				$ds->sync_price($product);
+//				$ds->update_post_meta($product, TRUE);
+//				$ds->handle_updated_props($product);
+				break;
+			case 'variable':
+				$ds = new WC_Product_Variable_Data_Store_CPT();
+//				$ds->sync_price($product);
+//				$ds->sync_managed_variation_stock_status($product);
+				$ds->update_post_meta($product, TRUE);
+				break;
+			case 'external':
+				break;
+			default:
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' product type not recognized');
+			}
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' lookup table update complete');
+		} // version_compare('3.6')
+
 //		WC_Post_Data::delete_product_query_transients();
-///		delete_transient('wc_attribute_taxonomies');
-///		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
-///		_prime_post_caches($target_post_id);
+//		delete_transient('wc_attribute_taxonomies');
+//		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
+//		_prime_post_caches($target_post_id);
 	}
 
 	/**
@@ -505,7 +546,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_
 		$variation_data = array();
 		$variation_ids = array();
 		$post = NULL;
-///		$start_time = microtime();
+//		$start_time = microtime();
 
 		foreach ($variations as $variation_index => $variation) {
 			$post_data = $variation['post_data'];
@@ -572,11 +613,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' adding variation meta value ' . v
 			$variation_ids[] = $variation_post_id;
 			$variation_data[] = array('target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
 
-///			$end_time = microtime();
-///			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
-///				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
-///				break;
-///			}
+//			$end_time = microtime();
+//			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
+//				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
+//				break;
+//			}
 		} // foreach ($variations)
 
 		// delete variations if not in current sync data
@@ -697,10 +738,18 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$new_variatio
 	// TODO: make $new_meta_ids pass by reference or a class property
 	private function _process_associated_products($target_ids, $meta_key, $meta_source_id, $new_meta_ids)
 	{
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta_key=' . $meta_key . ' meta_source_id=' . $meta_source_id);
 		$new_target_id = NULL;
-		if (array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
+		$meta_post = NULL;
+		if (isset($target_ids[$meta_key][$meta_source_id]) && is_array($target_ids[$meta_key][$meta_source_id]) &&
+			array_key_exists('target_id', $target_ids[$meta_key][$meta_source_id])) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found push target post #' . $target_ids[$meta_key][$meta_source_id]['target_id']);
 			$meta_post = get_post($target_ids[$meta_key][$meta_source_id]['target_id']);
+		} else {
+if (isset($target_ids[$meta_key][$meta_source_id]))
+	SyncDebug::log(__METHOD__.'():' . __LINE__ . ' ERROR: set but not array ' . var_export($target_ids[$meta_key][$meta_source_id], TRUE));
+else
+	SyncDebug::log(__METHOD__.'():' . __LINE__ . ' ERROR: not set');
 		}
 		// lookup source_id in sync table
 		if (NULL === $meta_post) {
