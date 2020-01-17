@@ -37,8 +37,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' WC does not exist');
 			return TRUE;
 		}
 
-#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-#@#			return $data;
+///		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+///			return $data;
 
 		// check for strict mode and version mismatch
 		if (1 === SyncOptions::get_int('strict', 0)) {
@@ -108,8 +108,8 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 
 		if ('product' !== $post_data['post_type'])
 			return;										// don't need to do anything if it's not a 'product' post type
-#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-#@#			return;
+///		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+///			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
 		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
@@ -143,6 +143,13 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source domain: ' . var_export($
 		$product_type = $this->post_raw('product_type', '');
 		$response->set('product_type', $product_type);
 		$post_meta = $this->post_raw('post_meta', array());
+global $wpdb;
+$sql = "select * from `{$wpdb->prefix}term_relationships` where `object_id` = {$target_post_id}";
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- before ' . var_export($res, TRUE));
+wp_set_object_terms($target_post_id, $product_type, 'product_type', TRUE);
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- after ' . var_export($res, TRUE));
 
 		// sync metadata
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling meta data');
@@ -186,11 +193,14 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating post_meta for #' . $targ
 			}
 		}
 
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
+
 		$product_variations = $this->post_raw('product_variations', array());
 		if (!empty($product_variations)) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 			$variations = $this->_process_variations($target_post_id, $product_variations);
-			$response->set('variations', $variations);				#@# still needed?
+			$response->set('variations', $variations);				// still needed?
 		}
 
 		// is there anything to delete? srs#15.c.ii.4
@@ -221,8 +231,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 				// TODO: remove any images
 				$this->_sync_model->remove_sync_data($delete_id, 'post');
 			}
-#@#			_prime_post_caches($target_variations);
+//			_prime_post_caches($target_variations);
 		}
+
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 
 		// if handling Simple or first Variable Product, check for attribute taxonomies #12
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking for attribute taxonomies');
@@ -287,6 +300,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating attribute #' . $target_a
 			// wc_delete_attribute()
 		}
 
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
+
 		// clear transients and other objects srs#15.d
 		wc_delete_product_transients($target_post_id);
 
@@ -298,9 +314,31 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating attribute #' . $target_a
 				$wcds->update_table($target_post_id);		// calls WC_Data_Store_WP::update_lookup_table($target_post_id);
 			} */
 
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
+new WC_Product_External($target_post_id);
+
 			// possible product types: 'simple', 'grouped', 'external', 'variable', 'virtual', 'downloadable'
 			$product = new WC_Product($target_post_id);
-			$product_type = $product->get_type();
+			// product_type set above from $_POST data provided in API call
+			switch ($product_type) {
+			case 'external':
+				$product = new WC_Product_External($target_post_id);
+				break;
+			case 'grouped':
+				$product = new WC_Product_External($target_post_id);
+				break;
+			case 'variable':
+				$product = new WC_Product_Variable($target_post_id);
+				break;
+			default:
+			case 'simple':
+				$product = new WC_Product($target_post_id);
+				break;
+			}
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
+
 			// use the product type specific data store classes to force updates of lookup tables
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product #' . $target_post_id . ' type "' . $product_type . '"');
 			switch ($product_type) {
@@ -319,22 +357,23 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product
 				break;
 			case 'variable':
 				$ds = new WC_Product_Variable_Data_Store_CPT();
-//				$ds->sync_price($product);
-//				$ds->sync_managed_variation_stock_status($product);
-				$ds->update_post_meta($product, TRUE);
-				break;
-			case 'external':
+				$ds->sync_price($product);
+				$ds->sync_managed_variation_stock_status($product);
+//				$ds->update_post_meta($product, TRUE);
 				break;
 			default:
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' product type not recognized');
 			}
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' lookup table update complete');
+
+$res = $wpdb->get_results($sql);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 		} // version_compare('3.6')
 
 //		WC_Post_Data::delete_product_query_transients();
-#@#		delete_transient('wc_attribute_taxonomies');
-#@#		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
-#@#		_prime_post_caches($target_post_id);
+///		delete_transient('wc_attribute_taxonomies');
+///		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
+///		_prime_post_caches($target_post_id);
 	}
 
 	/**
@@ -547,7 +586,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_
 		$variation_data = array();
 		$variation_ids = array();
 		$post = NULL;
-#@#		$start_time = microtime();
+///		$start_time = microtime();
 
 		foreach ($variations as $variation_index => $variation) {
 			$post_data = $variation['post_data'];
@@ -614,11 +653,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' adding variation meta value ' . v
 			$variation_ids[] = $variation_post_id;
 			$variation_data[] = array('target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
 
-#@#			$end_time = microtime();
-#@#			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
-#@#				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
-#@#				break;
-#@#			}
+///			$end_time = microtime();
+///			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
+///				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
+///				break;
+///			}
 		} // foreach ($variations)
 
 		// delete variations if not in current sync data
