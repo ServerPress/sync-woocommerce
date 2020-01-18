@@ -316,32 +316,18 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_ex
 
 $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
-new WC_Product_External($target_post_id);
 
 			// possible product types: 'simple', 'grouped', 'external', 'variable', 'virtual', 'downloadable'
-			$product = new WC_Product($target_post_id);
-			// product_type set above from $_POST data provided in API call
-			switch ($product_type) {
-			case 'external':
-				$product = new WC_Product_External($target_post_id);
-				break;
-			case 'grouped':
-				$product = new WC_Product_External($target_post_id);
-				break;
-			case 'variable':
-				$product = new WC_Product_Variable($target_post_id);
-				break;
-			default:
-			case 'simple':
-				$product = new WC_Product($target_post_id);
-				break;
-			}
+			$factory = new WC_Product_Factory();
+			$product = $factory->get_product($target_post_id);
+			$type = $product->get_type();
+
 $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 
 			// use the product type specific data store classes to force updates of lookup tables
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product #' . $target_post_id . ' type "' . $product_type . '"');
-			switch ($product_type) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product #' . $target_post_id . ' type "' . $type . '"');
+			switch ($type) {
 			case 'simple':
 			case 'external':
 				$ds = new WC_Product_Data_Store_CPT();
@@ -362,7 +348,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating lookup table for product
 //				$ds->update_post_meta($product, TRUE);
 				break;
 			default:
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' product type not recognized');
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' product type "' . $type . '" is not recognized');
 			}
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' lookup table update complete');
 
