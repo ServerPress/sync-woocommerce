@@ -742,7 +742,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadables: ' . var_export($
 		// check for variation product if no target post id was found and set as featured image
 		if (0 === $target_post_id) {
 			$site_key = $this->_api_controller->source_site_key;
-			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post');
+			$sync_data = $this->_sync_model->get_sync_data(abs($this->post_int('post_id', 0)), $site_key, 'post');
 			$new_variation_id = $sync_data->target_content_id;
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' processing variation image - new id= ' . var_export($new_variation_id, TRUE));
 			if (NULL !== $sync_data && 0 !== $media_id) {
@@ -888,7 +888,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' post id=' . $target_post_id . '
 		if (0 === $target_post_id) {
 			$site_key = $this->_api_controller->source_site_key;
 			// TODO: use this->post_int('post_id', 0)
-			$sync_data = $this->_sync_model->get_sync_data($_POST['post_id'], $site_key, 'post');
+			$sync_data = $this->_sync_model->get_sync_data(abs($this->post_int('post_id', 0)), $site_key, 'post');
 			$target_post_id = $sync_data->target_content_id;
 		}
 
