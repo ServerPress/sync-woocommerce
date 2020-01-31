@@ -127,6 +127,14 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target weight: ' . var_export($
 			return TRUE;				// return, signaling that the API request was processed
 		}
 
+        // check if currency settings match #20
+        $currency = $this->post('currency', '');
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source currency=' . $currency . ' target currency=' . get_woocommerce_currency());
+        if (get_woocommerce_currency() !== $currency) {
+            $response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH);
+            return TRUE;                // return, signaling that the API request was processed
+        }
+
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post_data information: ' . var_export($post_data, TRUE));

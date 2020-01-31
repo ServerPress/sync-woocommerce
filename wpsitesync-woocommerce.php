@@ -358,6 +358,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_TARGET_VARIATION_MISSING:
 				$message = sprintf(__('Source Variation ID #%1$d cannot be found on Target site.', 'wpsitesync-woocommerce'), $data);
 				break;
+            case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH:
+                $message = __('The Currency settings on the Source site are different than the Target site.', 'wpsitesync-woocommerce');
+                break;
 			}
 			return $message;
 		}
