@@ -385,7 +385,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking tags: ' . var_export($ta
 		$obj = json_decode($json);
 //if ('wp:uagb/info-box' === $block_name) SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found json block data for "' . $block_name . '" : ' . var_export($obj, TRUE));
 
-		if (!empty($json) && NULL !== $obj) {
+		if (!empty($json) && NULL !== $obj && isset(SyncWooCommerceApiRequest::$gutenberg_props[$block_name])) {
 			// this block has a JSON object embedded within it
 			$props = explode('|', SyncWooCommerceApiRequest::$gutenberg_props[$block_name]);
 //SyncDebug::log(__METHOD__.'():' . __LINE__ . ' props=' . var_export($props, TRUE));
