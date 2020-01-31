@@ -56,3 +56,5 @@ SyncDebug::log(__METHOD__.'()' . __LINE__ . ' post id=' . $post_id);
 		return NULL;
 	}
 }
+
+// EOF
