@@ -47,6 +47,16 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 				$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_VERSION_MISMATCH);
 				return TRUE;
 			}
+
+            // check for overwriting product tax status when calc taxes is disabled on Target #19
+            if ('yes' !== get_option('woocommerce_calc_taxes')) {
+                if (isset($_POST['post_meta']) && is_set($_POST['post_meta']['_tax_class'])) {
+                    if (!empty($_POST['post_meta']['_tax_class'])) {
+                        $response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES);
+                        return TRUE;
+                    }
+                }
+            }
 		}
 
 		$taxonomies = $this->post_raw('attribute_taxonomies', array());

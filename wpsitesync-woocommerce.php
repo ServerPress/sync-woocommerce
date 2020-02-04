@@ -361,6 +361,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
             case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH:
                 $message = __('The Currency settings on the Source site are different than the Target site.', 'wpsitesync-woocommerce');
                 break;
+            case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES:
+                $message = __('Target site not calculating taxes, but Tax Class set in Source Product.', 'wpsitesync-woocommerce');
+                break;
 			}
 			return $message;
 		}
