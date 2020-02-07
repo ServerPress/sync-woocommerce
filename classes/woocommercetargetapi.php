@@ -37,8 +37,16 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' WC does not exist');
 			return TRUE;
 		}
 
-///		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-///			return $data;
+#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+#@#			return $data;
+
+		// check if currency settings match #20
+		$currency = $this->post('currency', '');
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source currency=' . $currency . ' target currency=' . get_woocommerce_currency());
+		if (get_woocommerce_currency() !== $currency) {
+			$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH);
+			return TRUE;				// return, signaling that the API request was processed
+		}
 
 		// check for strict mode and version mismatch
 		if (1 === SyncOptions::get_int('strict', 0)) {
@@ -48,15 +56,15 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 				return TRUE;
 			}
 
-            // check for overwriting product tax status when calc taxes is disabled on Target #19
-            if ('yes' !== get_option('woocommerce_calc_taxes')) {
-                if (isset($_POST['post_meta']) && is_set($_POST['post_meta']['_tax_class'])) {
-                    if (!empty($_POST['post_meta']['_tax_class'])) {
-                        $response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES);
-                        return TRUE;
-                    }
-                }
-            }
+			// check for overwriting product tax status when calc taxes is disabled on Target #19
+			if ('yes' !== get_option('woocommerce_calc_taxes')) {
+				if (isset($_POST['post_meta']) && is_set($_POST['post_meta']['_tax_class'])) {
+					if (!empty($_POST['post_meta']['_tax_class'])) {
+						$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES);
+						return TRUE;
+					}
+				}
+			}
 		}
 
 		$taxonomies = $this->post_raw('attribute_taxonomies', array());
@@ -118,8 +126,8 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 
 		if ('product' !== $post_data['post_type'])
 			return;										// don't need to do anything if it's not a 'product' post type
-///		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-///			return;
+#@#		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+#@#			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
 		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
@@ -130,20 +138,12 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 		// Check if WooCommerce dimension units match
 		$units = $this->post('woo_settings', array());
 		if (get_option('woocommerce_dimension_unit', 'cm') !== $units['dimension_unit'] || get_option('woocommerce_weight_unit', 'kg') !== $units['weight_unit']) {
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source weight: ' . var_export(get_option('woocommerce_dimension_unit', 'cm'), TRUE));
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' target weight: ' . var_export($units['dimension_unit'], TRUE));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source weight: ' . var_export(get_option('woocommerce_dimension_unit', 'cm'), TRUE));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' target weight: ' . var_export($units['dimension_unit'], TRUE));
 
 			$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_UNIT_MISMATCH);
 			return TRUE;				// return, signaling that the API request was processed
 		}
-
-        // check if currency settings match #20
-        $currency = $this->post('currency', '');
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' source currency=' . $currency . ' target currency=' . get_woocommerce_currency());
-        if (get_woocommerce_currency() !== $currency) {
-            $response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH);
-            return TRUE;                // return, signaling that the API request was processed
-        }
 
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
 
@@ -218,7 +218,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_ex
 		if (!empty($product_variations)) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 			$variations = $this->_process_variations($target_post_id, $product_variations);
-			$response->set('variations', $variations);				// still needed?
+			$response->set('variations', $variations);				#@# still needed?
 		}
 
 		// is there anything to delete? srs#15.c.ii.4
@@ -249,7 +249,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implo
 				// TODO: remove any images
 				$this->_sync_model->remove_sync_data($delete_id, 'post');
 			}
-//			_prime_post_caches($target_variations);
 		}
 
 $res = $wpdb->get_results($sql);
@@ -373,11 +372,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' lookup table update complete');
 $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 		} // version_compare('3.6')
-
-//		WC_Post_Data::delete_product_query_transients();
-///		delete_transient('wc_attribute_taxonomies');
-///		WC_Cache_Helper::incr_cache_prefix('woocommerce-attributes');
-///		_prime_post_caches($target_post_id);
 	}
 
 	/**
@@ -590,7 +584,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_
 		$variation_data = array();
 		$variation_ids = array();
 		$post = NULL;
-///		$start_time = microtime();
 
 		foreach ($variations as $variation_index => $variation) {
 			$post_data = $variation['post_data'];
@@ -656,12 +649,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' adding variation meta value ' . v
 
 			$variation_ids[] = $variation_post_id;
 			$variation_data[] = array('target_id' => $variation_post_id, 'source_id' => $post_data['ID']);
-
-///			$end_time = microtime();
-///			if (($end_time - $start_time) > self::TIME_THRESHHOLD) {
-///				$this->_response->notice_code(SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE, abs($post_data['ID']));
-///				break;
-///			}
 		} // foreach ($variations)
 
 		// delete variations if not in current sync data
