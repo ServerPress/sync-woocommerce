@@ -358,12 +358,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_TARGET_VARIATION_MISSING:
 				$message = sprintf(__('Source Variation ID #%1$d cannot be found on Target site.', 'wpsitesync-woocommerce'), $data);
 				break;
-            case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH:
-                $message = __('The Currency settings on the Source site are different than the Target site.', 'wpsitesync-woocommerce');
-                break;
-            case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES:
-                $message = __('Target site not calculating taxes, but Tax Class set in Source Product.', 'wpsitesync-woocommerce');
-                break;
+			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH:
+				$message = __('The Currency settings on the Source site are different than the Target site.', 'wpsitesync-woocommerce');
+				break;
+			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES:
+				$message = __('Target site not calculating taxes, but Tax Class set in Source Product.', 'wpsitesync-woocommerce');
+				break;
 			}
 			return $message;
 		}
@@ -387,6 +387,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 				break;
 			case SyncWooCommerceApiRequest::NOTICE_PARTIAL_VARIATION_UPDATE:
 				$message = __('Partial Variation update...continuing Push operation.', 'wpsitesync-woocommerce');
+				break;
+			case SyncWooCommerceApiRequest::NOTICE_CALC_TAXES_DIFFERENT:
+				$message = __('The "Calculate Taxes" setting is different on the Source and Target sites.', 'wpsitesync-woocommerce');
 				break;
 			}
 			return $message;

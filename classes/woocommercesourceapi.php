@@ -76,8 +76,9 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' for post id=' . var_export($pos
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found product target post id=' . var_export($data['target_post_id'], TRUE));
 		}
 
-        // set currnecny
-        $data['currency'] = get_woocommerce_currency();
+		// set currnecny
+		$data['currency'] = get_woocommerce_currency();
+		$data['calctaxes'] = get_option('woocommerce_calc_taxes'); #19
 
 		// get product type
 		$product = wc_get_product($post_id);
