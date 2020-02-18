@@ -42,7 +42,7 @@ class SyncWooCommerceApiRequest extends SyncInput
 		'wp:woocommerce/product-on-sale' =>				'[categories:t',			// 7 sharedAttributes
 		'wp:woocommerce/product-tag' =>					'[tags:t',					// 8
 		'wp:woocommerce/product-top-rated' =>			'[categories:t',			// 9
-		'wp:woocommerce/products-by-attribute' =>		'',							// 10
+		'wp:woocommerce/products-by-attribute' =>		'[attributes.id:t',			// 10 
 		'wp:woocommerce/reviews-by-product' =>			'productId:p',				// 11
 	//	product grid =>									'[categories:t',
 	//	featured category =>							'mediaId:i',
