@@ -5,7 +5,7 @@ Plugin URI: https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
 Description: Extension for WPSiteSync for Content that provides the ability to Sync WooCommerce Products within the WordPress admin.
 Author: WPSiteSync
 Author URI: https://wpsitesync.com
-Version: 0.9.4
+Version: 0.9.5
 Text Domain: wpsitesync-woocommerce
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
@@ -23,7 +23,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		private static $_instance = NULL;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
-		const PLUGIN_VERSION = '0.9.4';
+		const PLUGIN_VERSION = '0.9.5';
 		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
 		const REQUIRED_VERSION = '1.5.4';								// minimum version of WPSiteSync required for this add-on to initialize
 
@@ -82,6 +82,11 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 				SyncWooCommerceAdmin::get_instance();
 			}
 
+			// the following disable the Pull button. Once Pull is implemented, these will be removed
+			add_filter('spectrom_sync_show_pull', array($this, 'show_pull'), 90, 1);
+			add_filter('spectrom_sync_show_disabled_pull', array($this, 'show_disabled_pull'), 90, 1);
+			add_action('current_screen', array($this, 'disable_pull'), 90);
+
 			add_action('spectrom_sync_pre_push_content', array($this, 'pre_push_content'), 10, 4);
 			add_action('spectrom_sync_push_content', array($this, 'handle_push'), 10, 3);
 			add_filter('spectrom_sync_api_push_content', array($this, 'filter_push_content'), 10, 2);
@@ -98,6 +103,31 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 
 			add_filter('spectrom_sync_error_code_to_text', array($this, 'filter_error_code'), 10, 3);
 			add_filter('spectrom_sync_notice_code_to_text', array($this, 'filter_notice_code'), 10, 2);
+		}
+
+		public function show_pull($show)
+		{
+			$screen = get_current_screen();
+			if ('post' === $screen->base && 'product' === $screen->post_type) {
+				$show = FALSE;
+			}
+			return $show;
+		}
+		public function disable_pull()
+		{
+			if (class_exists('WPSiteSync_Pull', FALSE) && $this->show_disabled_pull(FALSE))
+				remove_action('spectrom_sync_metabox_after_button', array(SyncPullAdmin::get_instance(), 'add_pull_to_metabox'), 10, 1);
+		}
+		public function show_disabled_pull($show)
+		{
+			$screen = get_current_screen();
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TRUE));
+			if (class_exists('WPSiteSync_Pull', FALSE) && ('post' === $screen->base && 'product' === $screen->post_type)) {
+// add_action('spectrom_sync_metabox_after_button', array($this, 'add_pull_to_metabox'), 10, 1);
+//				remove_action('spectrom_sync_metabox_after_button', array(SyncPullAdmin::get_instance(), 'add_pull_to_metabox'), 10, 1);
+				$show = TRUE;
+			}
+			return $show;
 		}
 
 		/**
