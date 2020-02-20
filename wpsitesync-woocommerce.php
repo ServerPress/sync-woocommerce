@@ -115,7 +115,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		}
 		public function disable_pull()
 		{
-			if (class_exists('WPSiteSync_Pull', FALSE) && $this->show_disabled_pull(FALSE))
+			if (class_exists('SyncPullAdmin', FALSE) && $this->show_disabled_pull(FALSE))
 				remove_action('spectrom_sync_metabox_after_button', array(SyncPullAdmin::get_instance(), 'add_pull_to_metabox'), 10, 1);
 		}
 		public function show_disabled_pull($show)
