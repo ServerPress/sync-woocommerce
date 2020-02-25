@@ -5,7 +5,7 @@ Plugin URI: https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
 Description: Extension for WPSiteSync for Content that provides the ability to Sync WooCommerce Products within the WordPress admin.
 Author: WPSiteSync
 Author URI: https://wpsitesync.com
-Version: 0.9.5
+Version: 1.0
 Text Domain: wpsitesync-woocommerce
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
@@ -23,7 +23,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		private static $_instance = NULL;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
-		const PLUGIN_VERSION = '0.9.5';
+		const PLUGIN_VERSION = '1.0';
 		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
 		const REQUIRED_VERSION = '1.5.4';								// minimum version of WPSiteSync required for this add-on to initialize
 
@@ -56,8 +56,8 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		{
 			add_filter('spectrom_sync_active_extensions', array($this, 'filter_active_extensions'), 10, 2);
 
-//			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
-//				return;
+			if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', self::PLUGIN_KEY, self::PLUGIN_NAME))
+				return;
 
 			// Check if WooCommerce is installed and activated
 //			include_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -105,6 +105,11 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			add_filter('spectrom_sync_notice_code_to_text', array($this, 'filter_notice_code'), 10, 2);
 		}
 
+		/**
+		 * Filter callback to disable Pull button for 'product' CPT
+		 * @param boolean $show filter value
+		 * @return boolean TRUE if Pull button should be displayed; otherwise FALSE
+		 */
 		public function show_pull($show)
 		{
 			$screen = get_current_screen();
@@ -113,18 +118,26 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			}
 			return $show;
 		}
+
+		/**
+		 * Action callback for 'current_screen' - used to disable Pull button for Pull version < 2.2.2
+		 */
 		public function disable_pull()
 		{
 			if (class_exists('SyncPullAdmin', FALSE) && $this->show_disabled_pull(FALSE))
 				remove_action('spectrom_sync_metabox_after_button', array(SyncPullAdmin::get_instance(), 'add_pull_to_metabox'), 10, 1);
 		}
+
+		/**
+		 * Filter callback to determine if Pull button should be displayed for Pull version >= 2.2.2
+		 * @param boolean $show filter value
+		 * @return boolean TRUE to indicate Pull button to be disabled; otherwise FALSE
+		 */
 		public function show_disabled_pull($show)
 		{
 			$screen = get_current_screen();
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TRUE));
 			if (class_exists('WPSiteSync_Pull', FALSE) && ('post' === $screen->base && 'product' === $screen->post_type)) {
-// add_action('spectrom_sync_metabox_after_button', array($this, 'add_pull_to_metabox'), 10, 1);
-//				remove_action('spectrom_sync_metabox_after_button', array(SyncPullAdmin::get_instance(), 'add_pull_to_metabox'), 10, 1);
 				$show = TRUE;
 			}
 			return $show;
@@ -190,7 +203,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TR
 			$data = $this->_target_api->process_gutenberg_block($content, $block_name, $json, $target_post_id, $start, $end, $pos);
 			return $data;
 		}
-
+	
 		/**
 		 * Check that everything is ready for us to process the Content Push operation on the Target
 		 * @param array $post_data The post data for the current Push

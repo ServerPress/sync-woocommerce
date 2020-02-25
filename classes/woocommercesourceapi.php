@@ -38,8 +38,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations...skipping'
 			return $data;
 		}
 
-//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-//			return $data;
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+			return $data;
 
 		$post_id = 0;
 		$action = 'push';
@@ -101,31 +101,21 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' offset=' . $offset . ' incr=' .  
 			if ($offset + SyncWooCommerceApiRequest::OFFSET_INCREMENT >= count($ids)) {
 				// last batch of variations. include list of IDs so Target can remove deleted variations srs#15.c.ii.4
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' constructing variation_list for deletion on Target');
-//				$all_ids = array();
-//				foreach ($ids as $var) {
-//					$all_ids[] = abs($var['ID']);
-//				}
 				$data['variation_list'] = $ids;
 			}
 			$slice = array_slice($ids, $offset, SyncWooCommerceApiRequest::OFFSET_INCREMENT);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found ' . $this->variations . '; offset=' . $offset . ' incr=' . SyncWooCommerceApiRequest::OFFSET_INCREMENT . ' slice:' . var_export($slice, TRUE));
 			$ids = $slice;
 
-			// get information on each of the variations using SyncApiRequest::get_push_data()
-//			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 10, 1);
+			// get information on each of the variations
 			foreach ($ids as $key => $id) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding variation id=' . var_export($id, TRUE));
-				// the SyncApiRequest->_post_data is reset inside get_push_data()
-//				$this->_api->clear_post_data();
 				// TODO: do these have their own dependencies, taxonomies, etc?
-//				$temp_data = array();
-//				$data['product_variations'][] = $this->_api->get_push_data($id, $temp_data);
 				$var_data = get_post($id, ARRAY_A);
 				$meta_data = get_post_meta($id);
 				// TODO: push images
 				$data['product_variations'][] = array('post_data' => $var_data, 'post_meta' => $meta_data);
 			}
-//			$this->_api->set_post_data($data);
 			$this->_processing_variations = FALSE;
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($data['product_variations'], TRUE));
 		}
@@ -164,25 +154,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 				case '_product_attributes':
 					$attributes = maybe_unserialize($meta_value);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking product attributes ' . var_export($attributes, TRUE));
-#					$taxonomies = $attributes[0];
-#					foreach ($taxonomies as $tax_name => $tax_data) {
-#						$taxname = $tax_data['name'];
-#						if ('pa_' === substr($taxname, 0, 3)) {
-#							$terms = get_the_terms($post_id, $taxname);
-#							foreach ($terms as $tax_term) {
-#								$data['product_attributes'][] = $tax_term;
-#							}
-#						}
-#					}
 
-//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' offset=' . $offset);
 					// include a list of Product Attributes #12
-#					$pa_terms = get_the_terms($product_id, $tax);
-#					if (0 === $offset) {
-						// only provide list on first Push in the case of Variable Products
-						$pa_taxonomies = wc_get_attribute_taxonomies();
-						$data['product_attribute_taxonomies'] = $pa_taxonomies;
-#					}
+					// only provide list on first Push in the case of Variable Products
+					$pa_taxonomies = wc_get_attribute_taxonomies();
+					$data['product_attribute_taxonomies'] = $pa_taxonomies;
 					break;
 				}
 			}
@@ -230,18 +206,6 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' data=' . var_export($data, TRUE
 	}
 
 	/**
-	 * Add the 'product_variation' post type to allowed post type list
-	 * @param array $post_types The current allowed post types
-	 * @return array Allowed post type list with 'product_variation' added
-	 */
-	public function filter_allowed_post_types($post_types)
-	{
-		// TODO: likely not needed since a product_variation will not be pushed by itself
-		$post_types[] = 'product_variation';
-		return $post_types;
-	}
-
-	/**
 	 * Callback for the 'spectrom_sync_api_response' action called after API result is returned from Target
 	 * @param SyncApiResponse $response Instance of the response object that will be returned to the browser
 	 * @param string $action The API action code
@@ -269,7 +233,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' var=' . $this->variations . ' inc
 			}
 		}
 	}
-
+	
 	/**
 	 * Checks the content of shortcodes, looking for Product references that have not yet
 	 * been Pushed and taxonomy information that needs to be added to the Push content.

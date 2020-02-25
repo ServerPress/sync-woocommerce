@@ -37,8 +37,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' WC does not exist');
 			return TRUE;
 		}
 
-//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-//			return $data;
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+			return $data;
 
 		// check if currency settings match #20
 		$currency = $this->post('currency', '');
@@ -131,8 +131,8 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 
 		if ('product' !== $post_data['post_type'])
 			return;										// don't need to do anything if it's not a 'product' post type
-//		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
-//			return;
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
 		if (1 === SyncOptions::get_int('strict', 0) && SyncApiController::get_instance()->get_header(SyncWooCommerceApiRequest::HEADER_WOOCOMMERCE_VERSION) !== WC()->version) {
@@ -223,7 +223,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_ex
 		if (!empty($product_variations)) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 			$variations = $this->_process_variations($target_post_id, $product_variations);
-			$response->set('variations', $variations);				// still needed?
+			$response->set('variations', $variations);				// set variations return data
 		}
 
 		// is there anything to delete? srs#15.c.ii.4
