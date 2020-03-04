@@ -5,7 +5,7 @@ Plugin URI: https://wpsitesync.com/downloads/wpsitesync-woocommerce-products/
 Description: Extension for WPSiteSync for Content that provides the ability to Sync WooCommerce Products within the WordPress admin.
 Author: WPSiteSync
 Author URI: https://wpsitesync.com
-Version: 1.0
+Version: 1.1
 Text Domain: wpsitesync-woocommerce
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
@@ -23,7 +23,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		private static $_instance = NULL;
 
 		const PLUGIN_NAME = 'WPSiteSync for WooCommerce';
-		const PLUGIN_VERSION = '1.0';
+		const PLUGIN_VERSION = '1.1';
 		const PLUGIN_KEY = 'c51144fe92984ecb07d30e447c39c27a';
 		const REQUIRED_VERSION = '1.5.4';								// minimum version of WPSiteSync required for this add-on to initialize
 

@@ -38,7 +38,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations...skipping'
 			return $data;
 		}
 
-		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
 			return $data;
 
 		$post_id = 0;

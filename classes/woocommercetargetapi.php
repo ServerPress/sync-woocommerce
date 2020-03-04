@@ -37,7 +37,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' WC does not exist');
 			return TRUE;
 		}
 
-		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
 			return $data;
 
 		// check if currency settings match #20
@@ -131,7 +131,7 @@ SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
 
 		if ('product' !== $post_data['post_type'])
 			return;										// don't need to do anything if it's not a 'product' post type
-		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSyncContent_WooCommerce::PLUGIN_KEY, WPSiteSyncContent_WooCommerce::PLUGIN_NAME))
+		if (!WPSiteSyncContent::get_instance()->get_license()->check_license('sync_woocommerce', WPSiteSync_WooCommerce::PLUGIN_KEY, WPSiteSync_WooCommerce::PLUGIN_NAME))
 			return;
 
 		// check if WooCommerce versions match when strict mode is enabled
