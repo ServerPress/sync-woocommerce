@@ -57,9 +57,13 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 			}
 
 			// check for overwriting product tax status when calc taxes is disabled on Target #19
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes')); #@#
 			if ('yes' !== get_option('woocommerce_calc_taxes')) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . var_export($_POST['post_meta']['_tax_class'], TRUE)); #@#
 				if (isset($_POST['post_meta']) && isset($_POST['post_meta']['_tax_class'])) {
-					if (!empty($_POST['post_meta']['_tax_class'])) {
+					$tax_class = implode('.', $_POST['post_meta']['_tax_class']);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"'); #@#
+					if (!empty($_POST['post_meta']['_tax_class']) && !empty($tax_class)) {
 						$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES);
 						return TRUE;
 					}
