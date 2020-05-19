@@ -57,22 +57,22 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 			}
 
 			// check for overwriting product tax status when calc taxes is disabled on Target #19
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes')); #@#
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes'));
 			if ('yes' !== get_option('woocommerce_calc_taxes')) {
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . var_export($_POST['post_meta']['_tax_class'], TRUE)); #@#
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . var_export($_POST['post_meta']['_tax_class'], TRUE));
 				if (isset($_POST['post_meta']) && isset($_POST['post_meta']['_tax_class'])) {
 					$tax_class = implode('.', $_POST['post_meta']['_tax_class']);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"'); #@#
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"');
 					if (!empty($_POST['post_meta']['_tax_class']) && !empty($tax_class)) {
-						$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES);
-						return TRUE;
+						$response->notice_code(SyncWooCommerceApiRequest::NOTICE_WOOCOMMERCE_NOT_CALC_TAXES);
 					}
 				}
 			}
 		}
 
 		// check if calc taxes status is different and display warning #19
-		if (get_option('woocommerce_calc_taxes') !== $this->post('calctaxes')) {
+		if (get_option('woocommerce_calc_taxes') !== $this->post('calctaxes') &&
+			!$response->has_notices()) {
 			$response->notice_code(SyncWooCommerceApiRequest::NOTICE_CALC_TAXES_DIFFERENT);
 		}
 
@@ -616,7 +616,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found target post #' . $sync_data
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' check permission for updating post id#' . $post->ID);
 				// make sure the user performing API request has permission to perform the action
 				// TODO: move permission check outside loop and abort if no permissions exist
-				if ($this->_api_controller->has_permission('edit_posts', $post->ID)) {
+				if (SyncOptions::has_permission('edit_posts', $post->ID)) {
 //					$variation_post_id = abs($post->ID);		// unnecessary since it's already set
 					$post_data['post_title'] = 'Variation #' . $index . ' of ' . count($variations) . ' for product #' . $post_id;
 					$post_data['post_name'] = 'product-' . $post_id . '-variation-' . $index;
@@ -627,7 +627,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating ' . var_export($post_dat
 				}
 			} else {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' check permission for creating new variation from source id#' . $post_data['ID']);
-				if ($this->_api_controller->has_permission('edit_posts')) {
+				if (SyncOptions::has_permission('edit_posts')) {
 					// copy to new array so ID can be unset
 					$new_post_data = $post_data;
 					unset($new_post_data['ID']);

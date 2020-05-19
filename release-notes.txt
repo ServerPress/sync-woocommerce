@@ -1,0 +1,1 @@
+* change: Change differing Stock Class between Source and Target as a warning instead of error.

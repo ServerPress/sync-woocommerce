@@ -72,7 +72,9 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			}
 
 			// check for minimum WPSiteSync version
-			if (is_admin() && version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 && current_user_can('activate_plugins')) {
+			if (is_admin() && // class_exists('WPSiteSyncContent', FALSE) &&
+				version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 &&
+				current_user_can('activate_plugins')) {
 				add_action('admin_notices', array($this, 'notice_minimum_version'));
 				return;
 			}
@@ -82,6 +84,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 				SyncWooCommerceAdmin::get_instance();
 			}
 
+			// TODO: move into 'spectrom_sync_api_init' callback
 			// the following disable the Pull button. Once Pull is implemented, these will be removed
 			add_filter('spectrom_sync_show_pull', array($this, 'show_pull'), 90, 1);
 			add_filter('spectrom_sync_show_disabled_pull', array($this, 'show_disabled_pull'), 90, 1);
@@ -98,7 +101,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			add_filter('spectrom_sync_upload_media_allowed_mime_type', array($this, 'filter_allowed_mime_type'), 10, 2);
 			add_filter('spectrom_sync_api_arguments', array($this, 'api_arguments'), 10, 2);
 			add_filter('spectrom_sync_tax_list', array($this, 'product_taxonomies'), 10, 1);
-			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'));
+			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 100, 1);
 			add_action('spectrom_sync_media_processed', array($this, 'media_processed'), 10, 3);
 
 			add_filter('spectrom_sync_error_code_to_text', array($this, 'filter_error_code'), 10, 3);
@@ -136,7 +139,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 		public function show_disabled_pull($show)
 		{
 			$screen = get_current_screen();
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TRUE));
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TRUE));
 			if (class_exists('WPSiteSync_Pull', FALSE) && ('post' === $screen->base && 'product' === $screen->post_type)) {
 				$show = TRUE;
 			}
@@ -203,7 +206,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' screen=' . var_export($screen, TR
 			$data = $this->_target_api->process_gutenberg_block($content, $block_name, $json, $target_post_id, $start, $end, $pos);
 			return $data;
 		}
-	
+
 		/**
 		 * Check that everything is ready for us to process the Content Push operation on the Target
 		 * @param array $post_data The post data for the current Push
@@ -268,6 +271,10 @@ SyncDebug::log(__METHOD__.'():' . __LINE__);
 		{
 			$post_types[] = 'product';
 //			$post_types[] = 'product_variation';		// srs #9
+//			unset($post_types['shop_order']);
+//			$post_types = array_diff($post_types, array('shop_order', 'shop_coupon'));
+//			$post_types[] = 'shop_coupon';
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' allowed post types: ' . var_export($post_types, TRUE));
 			return $post_types;
 		}
 
@@ -404,9 +411,6 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_CURRENCY_MISMATCH:
 				$message = __('The Currency settings on the Source site are different than the Target site.', 'wpsitesync-woocommerce');
 				break;
-			case SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_CALC_TAXES:
-				$message = __('Target site not calculating taxes, but Tax Class set in Source Product.', 'wpsitesync-woocommerce');
-				break;
 			}
 			return $message;
 		}
@@ -433,6 +437,9 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 				break;
 			case SyncWooCommerceApiRequest::NOTICE_CALC_TAXES_DIFFERENT:
 				$message = __('The "Calculate Taxes" setting is different on the Source and Target sites.', 'wpsitesync-woocommerce');
+				break;
+			case SyncWooCommerceApiRequest::NOTICE_WOOCOMMERCE_NOT_CALC_TAXES:
+				$message = __('Target site is not calculating taxes, but a Tax Class set in Source Product.', 'wpsitesync-woocommerce');
 				break;
 			}
 			return $message;
