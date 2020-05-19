@@ -928,7 +928,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' downloadable file target id=' .
 		}
 
 		// update post meta
-SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$target_post_id}, '_downloadable_files', {$downloads})");
+SyncDebug::log(__METHOD__ . '():' . __LINE__ . " update_post_meta({$target_post_id}, '_downloadable_files', ", var_export($downloads, TRUE) . ")");
 		update_post_meta($target_post_id, '_downloadable_files', $downloads);
 	}
 }
