@@ -76,6 +76,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 				version_compare(WPSiteSyncContent::PLUGIN_VERSION, self::REQUIRED_VERSION) < 0 &&
 				current_user_can('activate_plugins')) {
 				add_action('admin_notices', array($this, 'notice_minimum_version'));
+				add_action('admin_init', array($this, 'disable_plugin'));
 				return;
 			}
 
@@ -522,6 +523,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 			if (!class_exists('WPSiteSyncContent', FALSE) && current_user_can('activate_plugins')) {
 				if (is_admin())
 					add_action('admin_notices', array($this, 'notice_requires_wpss'));
+				add_action('admin_init', array($this, 'disable_plugin'));
 				return;
 			}
 		}
@@ -567,6 +569,14 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' getting product info for #' . $da
 			echo '<div class="notice ', $class, ' ', ($dismissable ? 'is-dismissible' : ''), '">';
 			echo '<p>', $msg, '</p>';
 			echo '</div>';
+		}
+
+		/**
+		 * Disables the plugin if WPSiteSync not installed or ACF is too old
+		 */
+		public function disable_plugin()
+		{
+			deactivate_plugins(plugin_basename(__FILE__));
 		}
 
 		/**
