@@ -1,1 +1,4 @@
 * change: Change differing Stock Class between Source and Target as a warning instead of error.
+* enhancement: Check for minimum version of WPSiteSync and disable plugin if not present.
+* fix: Resolve error in logging code.
+* enhancement: Change different Tax Class error message to a warning.

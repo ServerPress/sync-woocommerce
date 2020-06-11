@@ -43,7 +43,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations...skipping'
 
 		$post_id = 0;
 		$action = 'push';
-		// TODO: use SyncApiController->get_parent_action()
+		// TODO: use WPSiteSyncContent->get_parent_action()
 		if (isset($data['post_id']))					// present on Push operations
 			$post_id = abs($data['post_id']);
 		else if (isset($data['post_data']['ID'])) {		// present on Pull operations
