@@ -7,6 +7,8 @@ Author: WPSiteSync
 Author URI: https://wpsitesync.com
 Version: 1.2
 Text Domain: wpsitesync-woocommerce
+WC requires at least: 5.0.0
+WC tested up to: 5.0.0
 
 The PHP code portions are distributed under the GPL license. If not otherwise stated, all
 images, manuals, cascading stylesheets and included JavaScript are NOT GPL.
@@ -90,6 +92,8 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			add_filter('spectrom_sync_show_pull', array($this, 'show_pull'), 90, 1);
 			add_filter('spectrom_sync_show_disabled_pull', array($this, 'show_disabled_pull'), 90, 1);
 			add_action('current_screen', array($this, 'disable_pull'), 90);
+
+			// TODO: implement push/pull settings
 
 			add_action('spectrom_sync_pre_push_content', array($this, 'pre_push_content'), 10, 4);
 			add_action('spectrom_sync_push_content', array($this, 'handle_push'), 10, 3);
@@ -275,7 +279,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__);
 //			unset($post_types['shop_order']);
 //			$post_types = array_diff($post_types, array('shop_order', 'shop_coupon'));
 //			$post_types[] = 'shop_coupon';
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' allowed post types: ' . var_export($post_types, TRUE));
+#!# SyncDebug::log(__METHOD__.'():' . __LINE__ . ' allowed post types: ' . var_export($post_types, TRUE));
 			return $post_types;
 		}
 

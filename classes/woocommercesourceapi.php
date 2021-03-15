@@ -147,12 +147,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' variation data=' . var_export($da
 				case '_max_regular_price_variation_id':
 				case '_min_sale_price_variation_id':
 				case '_max_sale_price_variation_id':
-					$associated_id = $meta_value[0];
+					$associated_id = abs($meta_value[0]);
 					$data[$meta_key][$associated_id] = $this->_get_associated_products($associated_id, $action);
 					break;
 
 				case '_product_attributes':
-					$attributes = maybe_unserialize($meta_value);
+					$attributes = maybe_unserialize($meta_value[0]);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking product attributes ' . var_export($attributes, TRUE));
 
 					// include a list of Product Attributes #12
@@ -465,23 +465,27 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' adding product image id=' . var
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' associated id: ' . var_export($associated_id, TRUE));
 		$associated = array();
 
-		if ('pull' === $action) {
-			$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'));
-			if (NULL !== $sync_data) {
-				$associated['target_id'] = $sync_data->source_content_id;
+		// only do this for valid (non 0) product IDs #30
+		$associated_id = abs($associated_id);
+		if (0 !== $associated_id) {
+			if ('pull' === $action) {
+				$sync_data = $this->_sync_model->get_sync_data($associated_id, SyncOptions::get('target_site_key'));
+				if (NULL !== $sync_data) {
+					$associated['target_id'] = $sync_data->source_content_id;
+				} else {
+					$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
+				}
 			} else {
-				$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
+				$sync_data = $this->_sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'));
+				if (NULL !== $sync_data) {
+					$associated['target_id'] = $sync_data->target_content_id;
+				} else {
+					$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
+				}
 			}
-		} else {
-			$sync_data = $this->_sync_model->get_sync_target_post($associated_id, SyncOptions::get('target_site_key'));
-			if (NULL !== $sync_data) {
-				$associated['target_id'] = $sync_data->target_content_id;
-			} else {
-				$this->_response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_DEPENDENT_PRODUCT_NOT_PUSHED, $associated_id);
-			}
-		}
 
-		$associated['source_title'] = get_the_title($associated_id);
+			$associated['source_title'] = get_the_title($associated_id);
+		}
 
 		return $associated;
 	}

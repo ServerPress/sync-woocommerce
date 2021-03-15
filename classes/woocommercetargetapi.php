@@ -59,7 +59,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 			// check for overwriting product tax status when calc taxes is disabled on Target #19
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes'));
 			if ('yes' !== get_option('woocommerce_calc_taxes')) {
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . var_export($_POST['post_meta']['_tax_class'], TRUE));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . SyncDebug::arr_sanitize($_POST['post_meta']['_tax_class']));
 				if (isset($_POST['post_meta']) && isset($_POST['post_meta']['_tax_class'])) {
 					$tax_class = implode('.', $_POST['post_meta']['_tax_class']);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"');
@@ -521,6 +521,8 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' taxonomy attributes: ' . var_ex
 		foreach ($attributes as $attribute_key => $attribute) {
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute: ' . var_export($attribute, TRUE));
 
+			$id = NULL;
+
 			// check if attribute is a taxonomy
 			if (1 === $attribute['is_taxonomy']) {
 				WPSiteSync_WooCommerce::get_instance()->load_class('woocommercemodel');
@@ -561,7 +563,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' insert result=' . var_export($ins
 					if (FALSE !== $insert)
 						$id = $wpdb->insert_id;
 				} else {
-					$id = $att_tax->id;
+					// TODO: check HS #215811
+					if (isset($att_tax->id))
+						$id = $att_tax->id;
+					else {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' error: taxonomy does not refer to an id ' . var_export($att_tax, TRUE));
+					}
 				}
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_export($id, TRUE));
 			}
@@ -694,7 +701,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation id ' . $remove
 	 */
 	public function media_processed($target_post_id, $attach_id, $media_id)
 	{
-SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . var_export($_POST, TRUE));
+SyncDebug::log(__METHOD__ . "({$target_post_id}, {$attach_id}, {$media_id}):" . __LINE__ . ' post= ' . SyncDebug::arr_sanitize($_POST));
 		$this->_sync_model = new SyncModel();
 		$this->_api_controller = SyncApiController::get_instance();
 		$action = $this->post('operation', 'push');

@@ -2,3 +2,4 @@
 * enhancement: Check for minimum version of WPSiteSync and disable plugin if not present.
 * fix: Resolve error in logging code.
 * enhancement: Change different Tax Class error message to a warning.
+* fix: Check for empty / zero value associated product ID and don't produce errors. (Thanks James K.)
