@@ -6,6 +6,7 @@ class SyncWooCommerceTargetApi extends SyncInput
 	private $_sync_model;													// reference to SyncModel
 	private $_api_controller;												// reference to SyncApiController
 	private $_response = NULL;												// used to set response value
+	private $_product_type = NULL;											// used to override product type
 
 	private $_block_names = NULL;											// array of block names (keys) from $gutenberg_props
 
@@ -57,12 +58,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' strict mode and versions do not m
 			}
 
 			// check for overwriting product tax status when calc taxes is disabled on Target #19
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes'));
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' calc taxes=' . get_option('woocommerce_calc_taxes'));
 			if ('yes' !== get_option('woocommerce_calc_taxes')) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' tax_class=' . SyncDebug::arr_sanitize($_POST['post_meta']['_tax_class']));
 				if (isset($_POST['post_meta']) && isset($_POST['post_meta']['_tax_class'])) {
 					$tax_class = implode('.', $_POST['post_meta']['_tax_class']);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"');
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"');
 					if (!empty($_POST['post_meta']['_tax_class']) && !empty($tax_class)) {
 						$response->notice_code(SyncWooCommerceApiRequest::NOTICE_WOOCOMMERCE_NOT_CALC_TAXES);
 					}
@@ -127,6 +128,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' $tax_class="' . $tax_class . '"')
 	public function handle_push($target_post_id, $post_data, $response)
 	{
 SyncDebug::log(__METHOD__ . "({$target_post_id}):" . __LINE__);
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' POST=' . SyncDebug::arr_sanitize($_POST));
 
 		if (!class_exists('WooCommerce', FALSE) || !function_exists('WC')) {
 			$response->error_code(SyncWooCommerceApiRequest::ERROR_WOOCOMMERCE_NOT_ACTIVATED);
@@ -154,6 +156,15 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' target weight: ' . var_export($un
 			return TRUE;				// return, signaling that the API request was processed
 		}
 
+		$source_post_id = abs($_POST['post_id']);
+
+		// clear caches
+		clean_post_cache($target_post_id);
+		clean_taxonomy_cache('product_type');
+		clean_taxonomy_cache('product_shipping_class');
+		clean_taxonomy_cache('product_visibility');
+		wp_cache_flush();
+
 		add_filter('spectrom_sync_upload_media_allowed_mime_type', array(WPSiteSync_WooCommerce::get_instance(), 'filter_allowed_mime_type'), 10, 2);
 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' found post_data information: ' . var_export($post_data, TRUE));
@@ -173,15 +184,16 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source domain: ' . var_export($
 global $wpdb;
 $sql = "select * from `{$wpdb->prefix}term_relationships` where `object_id` = {$target_post_id}";
 $res = $wpdb->get_results($sql);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- before ' . var_export($res, TRUE));
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- before ' . var_export($res, TRUE));
 wp_set_object_terms($target_post_id, $product_type, 'product_type', TRUE);
 $res = $wpdb->get_results($sql);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- after ' . var_export($res, TRUE));
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- after ' . var_export($res, TRUE));
 
 		// sync metadata
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' handling meta data');
 
 		foreach ($post_meta as $meta_key => $meta_value) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta key="' . $meta_key . '"');
 			// loop through meta_value array
 			if ('_product_attributes' === $meta_key) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing product attributes: ');
@@ -190,7 +202,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value: ' . var_export($meta_
 			} else {
 				foreach ($meta_value as $value) {
 					$value = maybe_unserialize(stripslashes($value));
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value ' . var_export($value, TRUE));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta_key=' . $meta_key . ' meta_value ' . var_export($value, TRUE));
 					switch ($meta_key) {
 					case '_children':
 					case '_upsell_ids':
@@ -204,6 +216,11 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value ' . var_export($value,
 						update_post_meta($target_post_id, $meta_key, $new_meta_ids);
 						break;
 
+					case '_product_image_gallery':
+						// TODO: implement here instead of special handling
+//SyncDebug::log(__METHOD__.'():' . __LINE__ . ' image gallery');
+						break;
+
 					case '_min_price_variation_id':
 					case '_max_price_variation_id':
 					case '_min_regular_price_variation_id':
@@ -212,7 +229,7 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' meta value ' . var_export($value,
 					case '_max_sale_price_variation_id':
 						$values = $this->post_raw($meta_key, array());
 						$new_id = $this->_process_variation_ids($values, $value);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating post_meta for #' . $target_post_id . ' key="' . $meta_key . '" value=' . var_export($new_id));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating post_meta for #' . $target_post_id . ' key="' . $meta_key . '" value=' . var_export($new_id, TRUE));
 						update_post_meta($target_post_id, $meta_key, $new_id);
 						break;
 					}
@@ -250,9 +267,15 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' processing variations');
 					$target_variations[] = abs($sync_data->target_content_id);
 				}
 			}
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' current variations: ' . implode(',', $current_variations));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' target variations: ' . implode(',', $target_variations));
+
 			// the difference in these lists are the variations that are to be deleted
 			$delete_list = array_diff($target_variations, $variation_ids);
-SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implode(',' ,$delete_list));
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implode(',', $delete_list));
+			$delete_list = $this->remove_variations($current_variations, $target_variations);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' deleting variation ids: ' . implode(',', $delete_list));
+
 			foreach ($delete_list as $delete_id) {
 				wp_delete_post($delete_id);
 				// TODO: remove any images
@@ -344,9 +367,19 @@ $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 
 			// possible product types: 'simple', 'grouped', 'external', 'variable', 'virtual', 'downloadable'
-			$factory = new WC_Product_Factory();
-			$product = $factory->get_product($target_post_id);
+##			$factory = new WC_Product_Factory();
+##			$product = $factory->get_product($target_post_id);
+
+$prod_type = wp_get_object_terms($target_post_id, 'product_type');
+if (!is_wp_error($prod_type) && is_a($prod_type[0], 'WP_Term')) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' setting filter to type "' . $prod_type[0]->slug . '"');
+	$this->_product_type = $prod_type[0]->slug;
+	add_filter('woocommerce_product_type_query', array($this, 'filter_wc_product_type'), 10, 2);
+}
+			$product = wc_get_product($target_post_id);
+
 			$type = $product->get_type();
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' prod type=' . var_export($prod_type, TRUE) . ' type=' . $type);
 
 $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
@@ -381,6 +414,35 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' lookup table update complete');
 $res = $wpdb->get_results($sql);
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' checking taxonomy- end ' . var_export($res, TRUE));
 		} // version_compare('3.6')
+	}
+
+	/**
+	 * Forces Product Factory to return the product type specified by Source site in API data
+	 * @param string $filter The product type being filtered
+	 * @param int $product_id The product ID
+	 * @return string A string denoting the product type, such as 'simple', 'variable', etc.
+	 */
+	public function filter_wc_product_type($filter, $product_id)
+	{
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' return product type "' . $this->_product_type . '"');
+		return $this->_product_type;
+	}
+
+	/**
+	 * Builds a list of Variation IDs that are to be removed.
+	 * @param array $current A list of Variation IDs that are currently associated with the Variable Product
+	 * @param array $list List of IDs to check.
+	 * @return array A list of Variation IDs to be removed. If it's in the $current list but no in the $list, it was removed on the Source site
+	 * and therefore needs to be removed on the Target site.
+	 */
+	private function remove_variations($current, $list)
+	{
+		$result = array();
+		foreach ($current as $entry) {
+			if (!in_array($entry, $list))
+				$result[] = $entry;
+		}
+		return $result;
 	}
 
 	/**
@@ -597,6 +659,7 @@ SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' attribute taxonomy id: ' . var_
 	 */
 	private function _process_variations($post_id, $variations)
 	{
+SyncDebug::log(__METHOD__.'(' . $post_id . '):' . __LINE__);
 		$variation_data = array();
 		$variation_ids = array();
 		$post = NULL;
@@ -630,7 +693,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' check permission for updating pos
 					$post_data['post_parent'] = $post_id;
 					$post_data['guid'] = home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index;
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' updating ' . var_export($post_data, TRUE));
-					wp_update_post($post_data, TRUE);
+					$res = wp_update_post($post_data, TRUE, FALSE);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' wp_update_post() results=' . var_export($res, TRUE));
 				}
 			} else {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' check permission for creating new variation from source id#' . $post_data['ID']);
@@ -643,10 +707,14 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' check permission for creating new
 					$new_post_data['post_parent'] = $post_id;
 					$new_post_data['guid'] = home_url() . '/?product_variation=product-' . $post_id . '-variation-' . $index;
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' inserting ' . var_export($new_post_data, TRUE));
-					$variation_post_id = wp_insert_post($new_post_data);
+					$variation_post_id = wp_insert_post($new_post_data, TRUE, FALSE);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' wp_insert_post() results=' . var_export($variation_post_id, TRUE));
+$tmp_post = get_post($variation_post_id);
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' post=' . var_export($tmp_post, TRUE));
 				}
 			}
 
+			// TODO: check $variation_post_id before continuing
 			foreach ($variation['post_meta'] as $meta_key => $meta_value) {
 				foreach ($meta_value as $value) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' adding variation meta value ' . var_export($value, TRUE));
@@ -826,8 +894,8 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' still no product found - look up 
 	/**
 	 * Process variation ids
 	 * @param array $meta_value Array of Source product IDs
-	 * @param $source_id
-	 * @return int|NULL The Target variation ID on success or NULL on error
+	 * @param string $source_id The ID values from the Source
+	 * @return int|string The Target variation ID on success or an empty string on error
 	 */
 	private function _process_variation_ids($meta_value, $source_id)
 	// TODO: verify parameters used
@@ -835,6 +903,12 @@ SyncDebug::log(__METHOD__.'():' . __LINE__ . ' still no product found - look up 
 SyncDebug::log(__METHOD__ . '():' . __LINE__ . ' source id: ' . var_export($source_id, TRUE) . ' meta value: ' . var_export($meta_value, TRUE));
 		$new_id = NULL;
 		$meta_post = NULL;
+
+		if (empty($source_id) || !isset($meta_value[$source_id])) {
+SyncDebug::log(__METHOD__.'():' . __LINE__ . ' no source id');
+			return '';
+		}
+
 		if (array_key_exists('target_id', $meta_value[$source_id])) {
 SyncDebug::log(__METHOD__.'():' . __LINE__ . ' found target post #' . $meta_value[$source_id]['target_id']);
 			$meta_post = get_post($meta_value[$source_id]['target_id']);

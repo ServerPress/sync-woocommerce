@@ -3,3 +3,5 @@
 * fix: Resolve error in logging code.
 * enhancement: Change different Tax Class error message to a warning.
 * fix: Check for empty / zero value associated product ID and don't produce errors. (Thanks James K.)
+* enhancement: Clear post and taxonomy caches before updates. (Thanks James K.)
+* fix: Fix bug when merging variations. (Thanks James K.)
