@@ -108,6 +108,7 @@ if (!class_exists('WPSiteSync_WooCommerce', FALSE)) {
 			add_filter('spectrom_sync_tax_list', array($this, 'product_taxonomies'), 10, 1);
 			add_filter('spectrom_sync_allowed_post_types', array($this, 'filter_allowed_post_types'), 100, 1);
 			add_action('spectrom_sync_media_processed', array($this, 'media_processed'), 10, 3);
+			add_filter('spectrom_sync_tax_set_terms', array($this, 'filter_tax_set_terms'), 10, 1);
 
 			add_filter('spectrom_sync_error_code_to_text', array($this, 'filter_error_code'), 10, 3);
 			add_filter('spectrom_sync_notice_code_to_text', array($this, 'filter_notice_code'), 10, 2);
@@ -281,6 +282,20 @@ SyncDebug::log(__METHOD__.'():' . __LINE__);
 //			$post_types[] = 'shop_coupon';
 #!# SyncDebug::log(__METHOD__.'():' . __LINE__ . ' allowed post types: ' . var_export($post_types, TRUE));
 			return $post_types;
+		}
+
+		/**
+		 * Filters list of taxonomies that require wp_set_object_terms() instead of wp_add_object_terms()
+		 * @param array $term_list List of terms to use wp_set_object_terms()
+		 * @return array Modified list, with the product type, shipping class and visibility taxonomies added
+		 */
+		public function filter_tax_set_terms($term_list)
+		{
+			$term_list[] = 'product_type';
+			$term_list[] = 'product_shipping_class';
+			$term_list[] = 'product_visibility';
+
+			return $term_list;
 		}
 
 		/**
